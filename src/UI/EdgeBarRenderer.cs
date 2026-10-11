@@ -14,7 +14,7 @@ namespace LiteMonitor
     /// </summary>
     public static class EdgeBarRenderer
     {
-        public const int EdgeBarLength = 72;    // 卡片可见长度（竖条=高 / 横条=宽）
+        public const int EdgeBarLength = 46;    // 卡片可见长度（竖条=高 / 横条=宽）
         public const int EdgeBarOverhang = 6;   // 伸出屏幕外的部分（藏外侧圆角）
 
         private const int MarginNear = 3;       // 条组靠桌面内容一侧留白

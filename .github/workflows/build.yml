@@ -1,0 +1,54 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - master
+      - 'feat/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Publish (light, framework-dependent)
+        run: >
+          dotnet publish LiteMonitor.csproj -c Release -r win-x64
+          --self-contained false
+          -p:PublishSingleFile=true
+          -o publish/light
+
+      - name: Publish (full, self-contained)
+        run: >
+          dotnet publish LiteMonitor.csproj -c Release -r win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true
+          -o publish/full
+
+      - name: Zip artifacts
+        shell: pwsh
+        run: |
+          Compress-Archive -Path publish/light/* -DestinationPath LiteMonitor-light-win-x64.zip
+          Compress-Archive -Path publish/full/* -DestinationPath LiteMonitor-full-win-x64.zip
+
+      - name: Upload light build
+        uses: actions/upload-artifact@v4
+        with:
+          name: LiteMonitor-light-win-x64
+          path: LiteMonitor-light-win-x64.zip
+
+      - name: Upload full build
+        uses: actions/upload-artifact@v4
+        with:
+          name: LiteMonitor-full-win-x64
+          path: LiteMonitor-full-win-x64.zip

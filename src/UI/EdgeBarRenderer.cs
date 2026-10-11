@@ -23,9 +23,13 @@ namespace LiteMonitor
         private const int BarInset = 1;         // 填充内缩
         private const double LogMaxKb = 100.0 * 1024; // 对数满格 = 100 MB/s
 
-        /// <summary>磨砂模式的"留空色"：材质 2/3 下整窗画此色（与 Form.TransparencyKey 一致），留空像素被键出、透出系统背板。
-        /// 选浅灰而非黑：留空像素本身看不见，但抗锯齿的过渡色会混向它——浅灰让条边过渡柔和，纯黑会在条周留一圈黑晕（实测）</summary>
+        /// <summary>磨砂模式的"留空色"（与 Form.TransparencyKey 一致）：留空像素被键出透出背板，
+        /// 但抗锯齿的过渡色会混向它——键色必须尽量贴近可见的卡面色，否则边缘出现黑晕/白晕（两侧都实测翻过车）。
+        /// 亚克力底色漂移 → 用中性浅灰；云母底色稳定 ≈ #F0F3F9 → 直接取云母卡面色，AA 过渡与卡面完全一致</summary>
         public static readonly Color AcrylicKeyColor = Color.FromArgb(0xD5, 0xD8, 0xDC);
+        public static readonly Color MicaKeyColor = Color.FromArgb(0xF0, 0xF3, 0xF9);
+
+        public static Color GetGapColor(int material) => material >= 3 ? MicaKeyColor : AcrylicKeyColor;
 
         /// <summary>磨砂卡专用：轨道加深（浅色轨道会在灰底上"隐身"，加深后胶囊轮廓保持清晰）</summary>
         private static readonly Color FrostTrack = Color.FromArgb(0xC4, 0xCA, 0xD6);
@@ -59,16 +63,17 @@ namespace LiteMonitor
             if (dock == MainFormBizHelper.DockEdge.None || dock == MainFormBizHelper.DockEdge.Bottom) return;
             if (formW <= 0 || formH <= 0) return;
 
-            bool frost = material >= 2;   // 2=磨砂(亚克力) 3=磨砂(云母)
+            bool frost = material >= 2;      // 2=磨砂(亚克力) 3=磨砂(云母)
+            bool mica = material >= 3;       // 云母：留空色=卡面色 → AA 无晕可选，端头全圆
             var oldSmoothing = g.SmoothingMode;
-            // 磨砂模式必须关 AA：AA 的过渡像素会混向"留空色"——键色黑则出黑晕、键色浅则出白晕（实测两侧都翻过车），
-            // 只有不留过渡像素才能彻底无晕；端头圆角同时收小，降低无 AA 的阶梯感
-            g.SmoothingMode = frost ? SmoothingMode.None : SmoothingMode.AntiAlias;
-            float endR = frost ? 2f : BarW / 2f;   // 端头圆角（磨砂下 2px）
+            // 亚克力（底色漂移，无固定色可配 AA）必须关 AA 防晕；云母留空色与卡面一致，AA 全开
+            g.SmoothingMode = (frost && !mica) ? SmoothingMode.None : SmoothingMode.AntiAlias;
+            float endR = (frost && !mica) ? 2f : BarW / 2f;   // 亚克力端头 2px（抗阶梯），其余全圆
+            int bi = frost ? 0 : BarInset;                    // 磨砂下填充全宽（6px 上 1px 内缩太"贴片"）
 
             // 整窗铺卡片底色（含伸出屏幕外的部分；圆角与阴影由 Win11 DWM 提供）
             // 磨砂：铺"留空"色，由 TransparencyKey + 系统背板接管底色；其余材质铺主题卡面色
-            Color cardBg = frost ? AcrylicKeyColor : ThemeManager.ParseColor(t.Color.GroupBackground);
+            Color cardBg = frost ? GetGapColor(material) : ThemeManager.ParseColor(t.Color.GroupBackground);
             using (var bgBrush = new SolidBrush(cardBg))
                 g.FillRectangle(bgBrush, 0, 0, formW, formH);
 
@@ -103,8 +108,8 @@ namespace LiteMonitor
                 int w = formW - EndPad * 2;
                 if (w < 20) { g.SmoothingMode = oldSmoothing; return; }
 
-                DrawBidirectionalH(g, upBrush, downBrush, divPen, trackBrush, new Rectangle(left, netY, w, BarW), upP, downP, endR);
-                DrawBarH(g, trackBrush, memBrush, new Rectangle(left, memY, w, BarW), mem / 100.0, endR);
+                DrawBidirectionalH(g, upBrush, downBrush, divPen, trackBrush, new Rectangle(left, netY, w, BarW), upP, downP, endR, bi);
+                DrawBarH(g, trackBrush, memBrush, new Rectangle(left, memY, w, BarW), mem / 100.0, endR, bi);
             }
             else
             {
@@ -127,65 +132,67 @@ namespace LiteMonitor
                     memX = netX - Gap - BarW;
                 }
 
-                DrawBidirectionalV(g, upBrush, downBrush, divPen, trackBrush, new Rectangle(netX, barTop, BarW, barH), upP, downP, endR);
-                DrawBarV(g, trackBrush, memBrush, new Rectangle(memX, barTop, BarW, barH), mem / 100.0, endR);
+                DrawBidirectionalV(g, upBrush, downBrush, divPen, trackBrush, new Rectangle(netX, barTop, BarW, barH), upP, downP, endR, bi);
+                DrawBarV(g, trackBrush, memBrush, new Rectangle(memX, barTop, BarW, barH), mem / 100.0, endR, bi);
             }
 
             g.SmoothingMode = oldSmoothing;
         }
 
-        private static void DrawBidirectionalV(Graphics g, Brush up, Brush down, Pen div, Brush track, Rectangle r, double upP, double downP, float endR)
+        private static void DrawBidirectionalV(Graphics g, Brush up, Brush down, Pen div, Brush track, Rectangle r, double upP, double downP, float endR, int bi)
         {
             using var path = MakeRoundRect(r, endR);
             g.FillPath(track, path);
             int center = r.Y + r.Height / 2;
-            float half = r.Height / 2f - BarInset;
+            float half = r.Height / 2f - bi;
             var st = g.Save();
             g.SetClip(path);
-            if (upP >= 0.02) { int uh = (int)(half * upP); g.FillRectangle(up, r.X + BarInset, center - uh, r.Width - BarInset * 2, uh); }
-            if (downP >= 0.02) { int dh = (int)(half * downP); g.FillRectangle(down, r.X + BarInset, center, r.Width - BarInset * 2, dh); }
+            if (upP >= 0.02) { int uh = (int)(half * upP); g.FillRectangle(up, r.X + bi, center - uh, r.Width - bi * 2, uh); }
+            if (downP >= 0.02) { int dh = (int)(half * downP); g.FillRectangle(down, r.X + bi, center, r.Width - bi * 2, dh); }
             g.Restore(st);
             g.DrawLine(div, r.X + 2, center, r.Right - 2, center);
         }
 
-        private static void DrawBarV(Graphics g, Brush track, Brush fill, Rectangle r, double pct, float endR)
+        private static void DrawBarV(Graphics g, Brush track, Brush fill, Rectangle r, double pct, float endR, int bi)
         {
             using var path = MakeRoundRect(r, endR);
             g.FillPath(track, path);
             if (pct >= 0.02)
             {
-                int fh = (int)((r.Height - BarInset * 2) * pct);
+                int vp = bi > 0 ? bi : 1;   // 纵向端头留 1px：填充是硬裁剪，留出轨道平滑的圆端
+                int fh = (int)((r.Height - vp * 2) * pct);
                 var st = g.Save();
                 g.SetClip(path);
-                g.FillRectangle(fill, r.X + BarInset, r.Bottom - BarInset - fh, r.Width - BarInset * 2, fh);
+                g.FillRectangle(fill, r.X + bi, r.Bottom - vp - fh, r.Width - bi * 2, fh);
                 g.Restore(st);
             }
         }
 
-        private static void DrawBidirectionalH(Graphics g, Brush up, Brush down, Pen div, Brush track, Rectangle r, double upP, double downP, float endR)
+        private static void DrawBidirectionalH(Graphics g, Brush up, Brush down, Pen div, Brush track, Rectangle r, double upP, double downP, float endR, int bi)
         {
             using var path = MakeRoundRect(r, endR);
             g.FillPath(track, path);
             int center = r.X + r.Width / 2;
-            float half = r.Width / 2f - BarInset;
+            float half = r.Width / 2f - bi;
             var st = g.Save();
             g.SetClip(path);
-            if (upP >= 0.02) { int uw = (int)(half * upP); g.FillRectangle(up, center - uw, r.Y + BarInset, uw, r.Height - BarInset * 2); }
-            if (downP >= 0.02) { int dw = (int)(half * downP); g.FillRectangle(down, center, r.Y + BarInset, dw, r.Height - BarInset * 2); }
+            if (upP >= 0.02) { int uw = (int)(half * upP); g.FillRectangle(up, center - uw, r.Y + bi, uw, r.Height - bi * 2); }
+            if (downP >= 0.02) { int dw = (int)(half * downP); g.FillRectangle(down, center, r.Y + bi, dw, r.Height - bi * 2); }
             g.Restore(st);
             g.DrawLine(div, center, r.Y + 2, center, r.Bottom - 2);
         }
 
-        private static void DrawBarH(Graphics g, Brush track, Brush fill, Rectangle r, double pct, float endR)
+        private static void DrawBarH(Graphics g, Brush track, Brush fill, Rectangle r, double pct, float endR, int bi)
         {
             using var path = MakeRoundRect(r, endR);
             g.FillPath(track, path);
             if (pct >= 0.02)
             {
-                int fw = (int)((r.Width - BarInset * 2) * pct);
+                int hp = bi > 0 ? bi : 1;   // 横向端头同样留 1px
+                int fw = (int)((r.Width - hp * 2) * pct);
                 var st = g.Save();
                 g.SetClip(path);
-                g.FillRectangle(fill, r.X + BarInset, r.Y + BarInset, fw, r.Height - BarInset * 2);
+                g.FillRectangle(fill, r.X + hp, r.Y + bi, fw, r.Height - bi * 2);
                 g.Restore(st);
             }
         }

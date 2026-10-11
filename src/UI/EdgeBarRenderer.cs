@@ -23,9 +23,9 @@ namespace LiteMonitor
         private const int BarInset = 1;         // 填充内缩
         private const double LogMaxKb = 100.0 * 1024; // 对数满格 = 100 MB/s
 
-        /// <summary>磨砂模式的"留空色"：材质 2/3 下整窗画此纯黑（与 Form.TransparencyKey 一致），
-        /// 透出系统背板（Win11 SYSTEMBACKDROP；背板不可用时退化为直接透底）</summary>
-        public static readonly Color AcrylicKeyColor = Color.FromArgb(0, 0, 0);
+        /// <summary>磨砂模式的"留空色"：材质 2/3 下整窗画此色（与 Form.TransparencyKey 一致），留空像素被键出、透出系统背板。
+        /// 选浅灰而非黑：留空像素本身看不见，但抗锯齿的过渡色会混向它——浅灰让条边过渡柔和，纯黑会在条周留一圈黑晕（实测）</summary>
+        public static readonly Color AcrylicKeyColor = Color.FromArgb(0xD5, 0xD8, 0xDC);
 
         /// <summary>磨砂卡专用：轨道加深（对灰底保持轮廓）+ 1px 深灰描边（顺带接住边缘抗锯齿混色）</summary>
         private static readonly Color FrostTrack = Color.FromArgb(0xC4, 0xCA, 0xD6);

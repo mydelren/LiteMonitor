@@ -27,9 +27,8 @@ namespace LiteMonitor
         /// 选浅灰而非黑：留空像素本身看不见，但抗锯齿的过渡色会混向它——浅灰让条边过渡柔和，纯黑会在条周留一圈黑晕（实测）</summary>
         public static readonly Color AcrylicKeyColor = Color.FromArgb(0xD5, 0xD8, 0xDC);
 
-        /// <summary>磨砂卡专用：轨道加深（对灰底保持轮廓）+ 1px 深灰描边（顺带接住边缘抗锯齿混色）</summary>
+        /// <summary>磨砂卡专用：轨道加深（浅色轨道会在灰底上"隐身"，加深后胶囊轮廓保持清晰）</summary>
         private static readonly Color FrostTrack = Color.FromArgb(0xC4, 0xCA, 0xD6);
-        private static readonly Color FrostStroke = Color.FromArgb(0x6C, 0x6F, 0x85);
 
         private static double NetPct(float? bps)
         {
@@ -87,7 +86,6 @@ namespace LiteMonitor
             using var upBrush = new SolidBrush(upColor);
             using var downBrush = new SolidBrush(downColor);
             using var divPen = new Pen(divColor, 1f);
-            using var strokePen = frost ? new Pen(FrostStroke, 1f) : null;   // 磨砂卡专属描边（可空）
 
             double upP = NetPct(netUpBps);
             double downP = NetPct(netDownBps);
@@ -103,8 +101,8 @@ namespace LiteMonitor
                 int w = formW - EndPad * 2;
                 if (w < 20) { g.SmoothingMode = oldSmoothing; return; }
 
-                DrawBidirectionalH(g, upBrush, downBrush, divPen, trackBrush, new Rectangle(left, netY, w, BarW), upP, downP, strokePen);
-                DrawBarH(g, trackBrush, memBrush, new Rectangle(left, memY, w, BarW), mem / 100.0, strokePen);
+                DrawBidirectionalH(g, upBrush, downBrush, divPen, trackBrush, new Rectangle(left, netY, w, BarW), upP, downP);
+                DrawBarH(g, trackBrush, memBrush, new Rectangle(left, memY, w, BarW), mem / 100.0);
             }
             else
             {
@@ -127,14 +125,14 @@ namespace LiteMonitor
                     memX = netX - Gap - BarW;
                 }
 
-                DrawBidirectionalV(g, upBrush, downBrush, divPen, trackBrush, new Rectangle(netX, barTop, BarW, barH), upP, downP, strokePen);
-                DrawBarV(g, trackBrush, memBrush, new Rectangle(memX, barTop, BarW, barH), mem / 100.0, strokePen);
+                DrawBidirectionalV(g, upBrush, downBrush, divPen, trackBrush, new Rectangle(netX, barTop, BarW, barH), upP, downP);
+                DrawBarV(g, trackBrush, memBrush, new Rectangle(memX, barTop, BarW, barH), mem / 100.0);
             }
 
             g.SmoothingMode = oldSmoothing;
         }
 
-        private static void DrawBidirectionalV(Graphics g, Brush up, Brush down, Pen div, Brush track, Rectangle r, double upP, double downP, Pen stroke = null)
+        private static void DrawBidirectionalV(Graphics g, Brush up, Brush down, Pen div, Brush track, Rectangle r, double upP, double downP)
         {
             using var path = MakeRoundRect(r, r.Width / 2f);
             g.FillPath(track, path);
@@ -146,10 +144,9 @@ namespace LiteMonitor
             if (downP >= 0.02) { int dh = (int)(half * downP); g.FillRectangle(down, r.X + BarInset, center, r.Width - BarInset * 2, dh); }
             g.Restore(st);
             g.DrawLine(div, r.X + 2, center, r.Right - 2, center);
-            if (stroke != null) g.DrawPath(stroke, path);
         }
 
-        private static void DrawBarV(Graphics g, Brush track, Brush fill, Rectangle r, double pct, Pen stroke = null)
+        private static void DrawBarV(Graphics g, Brush track, Brush fill, Rectangle r, double pct)
         {
             using var path = MakeRoundRect(r, r.Width / 2f);
             g.FillPath(track, path);
@@ -161,10 +158,9 @@ namespace LiteMonitor
                 g.FillRectangle(fill, r.X + BarInset, r.Bottom - BarInset - fh, r.Width - BarInset * 2, fh);
                 g.Restore(st);
             }
-            if (stroke != null) g.DrawPath(stroke, path);
         }
 
-        private static void DrawBidirectionalH(Graphics g, Brush up, Brush down, Pen div, Brush track, Rectangle r, double upP, double downP, Pen stroke = null)
+        private static void DrawBidirectionalH(Graphics g, Brush up, Brush down, Pen div, Brush track, Rectangle r, double upP, double downP)
         {
             using var path = MakeRoundRect(r, r.Height / 2f);
             g.FillPath(track, path);
@@ -176,10 +172,9 @@ namespace LiteMonitor
             if (downP >= 0.02) { int dw = (int)(half * downP); g.FillRectangle(down, center, r.Y + BarInset, dw, r.Height - BarInset * 2); }
             g.Restore(st);
             g.DrawLine(div, center, r.Y + 2, center, r.Bottom - 2);
-            if (stroke != null) g.DrawPath(stroke, path);
         }
 
-        private static void DrawBarH(Graphics g, Brush track, Brush fill, Rectangle r, double pct, Pen stroke = null)
+        private static void DrawBarH(Graphics g, Brush track, Brush fill, Rectangle r, double pct)
         {
             using var path = MakeRoundRect(r, r.Height / 2f);
             g.FillPath(track, path);
@@ -191,7 +186,6 @@ namespace LiteMonitor
                 g.FillRectangle(fill, r.X + BarInset, r.Y + BarInset, fw, r.Height - BarInset * 2);
                 g.Restore(st);
             }
-            if (stroke != null) g.DrawPath(stroke, path);
         }
     }
 }

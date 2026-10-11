@@ -34,6 +34,8 @@ namespace LiteMonitor.src.UI.Helpers
         private DockEdge _dock = DockEdge.None;
         private DateTime _keepVisibleUntil = DateTime.MinValue;
         private Size _normalClientSize = Size.Empty;   // 收起前的正常窗口尺寸（收起态 = 小卡片窗口）
+        private int _preHideTop = 0;                   // 收起前的窗口 Top（左/右缘展开时还原）
+        private int _preHideLeft = 0;                  // 收起前的窗口 Left（顶缘展开时还原）
 
         public bool IsHidden => _isHidden;
         public DockEdge CurrentDock => _dock;
@@ -101,9 +103,11 @@ namespace LiteMonitor.src.UI.Helpers
                 _form.ClientSize = _normalClientSize;
                 _normalClientSize = Size.Empty;
             }
-            if (_dock == DockEdge.Right) _form.Left = area.Right - _form.Width;
-            else if (_dock == DockEdge.Left) _form.Left = area.Left;
-            else if (_dock == DockEdge.Top) _form.Top = area.Top;
+            // 必须还原收起前的位置：改 ClientSize 时窗口顶边不动，
+            // 若不还原，面板中心每展开一次就下移 (正常高-卡片长)/2，逐次累积（实测会一直漂到屏幕底）
+            if (_dock == DockEdge.Right) { _form.Left = area.Right - _form.Width; _form.Top = _preHideTop; }
+            else if (_dock == DockEdge.Left) { _form.Left = area.Left; _form.Top = _preHideTop; }
+            else if (_dock == DockEdge.Top) { _form.Top = area.Top; _form.Left = _preHideLeft; }
             _dock = DockEdge.None;
             _form.Invalidate();
         }
@@ -168,6 +172,8 @@ namespace LiteMonitor.src.UI.Helpers
 
                 // 原生信息条模式：窗口真实缩小为贴边小卡片（Win11 DWM 提供原生圆角+阴影）
                 _normalClientSize = _form.ClientSize;
+                _preHideTop = _form.Top;
+                _preHideLeft = _form.Left;
                 int visW = EdgeVisibleWidth;
                 int len = EdgeBarRenderer.EdgeBarLength;
                 int over = EdgeBarRenderer.EdgeBarOverhang;

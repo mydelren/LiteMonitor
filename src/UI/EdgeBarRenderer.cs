@@ -23,9 +23,13 @@ namespace LiteMonitor
         private const int BarInset = 1;         // 填充内缩
         private const double LogMaxKb = 100.0 * 1024; // 对数满格 = 100 MB/s
 
-        /// <summary>磨砂模式的"留空色"：材质 2 下整窗画此纯黑（与 Form.TransparencyKey 一致），
-        /// 透出系统背板（Win11 SYSTEMBACKDROP 亚克力；背板不可用时退化为直接透底）</summary>
+        /// <summary>磨砂模式的"留空色"：材质 2/3 下整窗画此纯黑（与 Form.TransparencyKey 一致），
+        /// 透出系统背板（Win11 SYSTEMBACKDROP；背板不可用时退化为直接透底）</summary>
         public static readonly Color AcrylicKeyColor = Color.FromArgb(0, 0, 0);
+
+        /// <summary>磨砂卡专用：轨道加深（对灰底保持轮廓）+ 1px 深灰描边（顺带接住边缘抗锯齿混色）</summary>
+        private static readonly Color FrostTrack = Color.FromArgb(0xC4, 0xCA, 0xD6);
+        private static readonly Color FrostStroke = Color.FromArgb(0x6C, 0x6F, 0x85);
 
         private static double NetPct(float? bps)
         {
@@ -56,18 +60,19 @@ namespace LiteMonitor
             if (dock == MainFormBizHelper.DockEdge.None || dock == MainFormBizHelper.DockEdge.Bottom) return;
             if (formW <= 0 || formH <= 0) return;
 
+            bool frost = material >= 2;   // 2=磨砂(亚克力) 3=磨砂(云母)
             var oldSmoothing = g.SmoothingMode;
-            // 磨砂模式下必须关抗锯齿：AA 边缘会与近黑的"透明键"底色混色，在上/左侧留下 1px 黑描边（实测）
-            g.SmoothingMode = material == 2 ? SmoothingMode.None : SmoothingMode.AntiAlias;
+            // 抗锯齿常开：磨砂模式的边缘混色由 1px 深灰描边接住（早期无描边时靠关 AA 顶，端头会发硬）
+            g.SmoothingMode = SmoothingMode.AntiAlias;
 
             // 整窗铺卡片底色（含伸出屏幕外的部分；圆角与阴影由 Win11 DWM 提供）
-            // 材质 2 = 磨砂：铺"透明键"色，由 TransparencyKey + 亚克力背板接管底色；其余材质铺主题卡面色
-            Color cardBg = material == 2 ? AcrylicKeyColor : ThemeManager.ParseColor(t.Color.GroupBackground);
+            // 磨砂：铺"留空"色，由 TransparencyKey + 系统背板接管底色；其余材质铺主题卡面色
+            Color cardBg = frost ? AcrylicKeyColor : ThemeManager.ParseColor(t.Color.GroupBackground);
             using (var bgBrush = new SolidBrush(cardBg))
                 g.FillRectangle(bgBrush, 0, 0, formW, formH);
 
             double mem = Math.Clamp(memPct ?? 0, 0, 100);
-            Color trackColor = ThemeManager.ParseColor(t.Color.BarBackground);
+            Color trackColor = frost ? FrostTrack : ThemeManager.ParseColor(t.Color.BarBackground);   // 磨砂底上用加深轨道，否则胶囊轮廓会被灰底吞掉
             Color memColor = ThemeManager.ParseColor(
                 mem >= memCrit ? t.Color.BarHigh :
                 mem >= memWarn ? t.Color.BarMid : t.Color.BarLow);
@@ -82,6 +87,7 @@ namespace LiteMonitor
             using var upBrush = new SolidBrush(upColor);
             using var downBrush = new SolidBrush(downColor);
             using var divPen = new Pen(divColor, 1f);
+            using var strokePen = frost ? new Pen(FrostStroke, 1f) : null;   // 磨砂卡专属描边（可空）
 
             double upP = NetPct(netUpBps);
             double downP = NetPct(netDownBps);
@@ -97,8 +103,8 @@ namespace LiteMonitor
                 int w = formW - EndPad * 2;
                 if (w < 20) { g.SmoothingMode = oldSmoothing; return; }
 
-                DrawBidirectionalH(g, upBrush, downBrush, divPen, trackBrush, new Rectangle(left, netY, w, BarW), upP, downP);
-                DrawBarH(g, trackBrush, memBrush, new Rectangle(left, memY, w, BarW), mem / 100.0);
+                DrawBidirectionalH(g, upBrush, downBrush, divPen, trackBrush, new Rectangle(left, netY, w, BarW), upP, downP, strokePen);
+                DrawBarH(g, trackBrush, memBrush, new Rectangle(left, memY, w, BarW), mem / 100.0, strokePen);
             }
             else
             {
@@ -121,14 +127,14 @@ namespace LiteMonitor
                     memX = netX - Gap - BarW;
                 }
 
-                DrawBidirectionalV(g, upBrush, downBrush, divPen, trackBrush, new Rectangle(netX, barTop, BarW, barH), upP, downP);
-                DrawBarV(g, trackBrush, memBrush, new Rectangle(memX, barTop, BarW, barH), mem / 100.0);
+                DrawBidirectionalV(g, upBrush, downBrush, divPen, trackBrush, new Rectangle(netX, barTop, BarW, barH), upP, downP, strokePen);
+                DrawBarV(g, trackBrush, memBrush, new Rectangle(memX, barTop, BarW, barH), mem / 100.0, strokePen);
             }
 
             g.SmoothingMode = oldSmoothing;
         }
 
-        private static void DrawBidirectionalV(Graphics g, Brush up, Brush down, Pen div, Brush track, Rectangle r, double upP, double downP)
+        private static void DrawBidirectionalV(Graphics g, Brush up, Brush down, Pen div, Brush track, Rectangle r, double upP, double downP, Pen stroke = null)
         {
             using var path = MakeRoundRect(r, r.Width / 2f);
             g.FillPath(track, path);
@@ -140,21 +146,25 @@ namespace LiteMonitor
             if (downP >= 0.02) { int dh = (int)(half * downP); g.FillRectangle(down, r.X + BarInset, center, r.Width - BarInset * 2, dh); }
             g.Restore(st);
             g.DrawLine(div, r.X + 2, center, r.Right - 2, center);
+            if (stroke != null) g.DrawPath(stroke, path);
         }
 
-        private static void DrawBarV(Graphics g, Brush track, Brush fill, Rectangle r, double pct)
+        private static void DrawBarV(Graphics g, Brush track, Brush fill, Rectangle r, double pct, Pen stroke = null)
         {
             using var path = MakeRoundRect(r, r.Width / 2f);
             g.FillPath(track, path);
-            if (pct < 0.02) return;
-            int fh = (int)((r.Height - BarInset * 2) * pct);
-            var st = g.Save();
-            g.SetClip(path);
-            g.FillRectangle(fill, r.X + BarInset, r.Bottom - BarInset - fh, r.Width - BarInset * 2, fh);
-            g.Restore(st);
+            if (pct >= 0.02)
+            {
+                int fh = (int)((r.Height - BarInset * 2) * pct);
+                var st = g.Save();
+                g.SetClip(path);
+                g.FillRectangle(fill, r.X + BarInset, r.Bottom - BarInset - fh, r.Width - BarInset * 2, fh);
+                g.Restore(st);
+            }
+            if (stroke != null) g.DrawPath(stroke, path);
         }
 
-        private static void DrawBidirectionalH(Graphics g, Brush up, Brush down, Pen div, Brush track, Rectangle r, double upP, double downP)
+        private static void DrawBidirectionalH(Graphics g, Brush up, Brush down, Pen div, Brush track, Rectangle r, double upP, double downP, Pen stroke = null)
         {
             using var path = MakeRoundRect(r, r.Height / 2f);
             g.FillPath(track, path);
@@ -166,18 +176,22 @@ namespace LiteMonitor
             if (downP >= 0.02) { int dw = (int)(half * downP); g.FillRectangle(down, center, r.Y + BarInset, dw, r.Height - BarInset * 2); }
             g.Restore(st);
             g.DrawLine(div, center, r.Y + 2, center, r.Bottom - 2);
+            if (stroke != null) g.DrawPath(stroke, path);
         }
 
-        private static void DrawBarH(Graphics g, Brush track, Brush fill, Rectangle r, double pct)
+        private static void DrawBarH(Graphics g, Brush track, Brush fill, Rectangle r, double pct, Pen stroke = null)
         {
             using var path = MakeRoundRect(r, r.Height / 2f);
             g.FillPath(track, path);
-            if (pct < 0.02) return;
-            int fw = (int)((r.Width - BarInset * 2) * pct);
-            var st = g.Save();
-            g.SetClip(path);
-            g.FillRectangle(fill, r.X + BarInset, r.Y + BarInset, fw, r.Height - BarInset * 2);
-            g.Restore(st);
+            if (pct >= 0.02)
+            {
+                int fw = (int)((r.Width - BarInset * 2) * pct);
+                var st = g.Save();
+                g.SetClip(path);
+                g.FillRectangle(fill, r.X + BarInset, r.Y + BarInset, fw, r.Height - BarInset * 2);
+                g.Restore(st);
+            }
+            if (stroke != null) g.DrawPath(stroke, path);
         }
     }
 }

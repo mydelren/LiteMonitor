@@ -28,7 +28,7 @@ namespace LiteMonitor
         // ====== 贴边信息条（收起态显示网速双向条 + 内存条） ======
         public bool EdgeBarEnabled { get; set; } = true;   // 开关（关闭则恢复原 4px 行为）
         public int EdgeBarWidth { get; set; } = 20;        // 收起后卡片可见宽度 px（使用时会夹在 18-48）
-        public int EdgeBarMaterial { get; set; } = 0;      // 收起卡片材质：0=纯色(主题色) 1=半透明 2=磨砂(亚克力·试验)
+        public int EdgeBarMaterial { get; set; } = 0;      // 收起卡片材质：0=纯色(主题色) 1=半透明 2=磨砂·亚克力 3=磨砂·云母(Mica)
         public double EdgeBarTintOpacity { get; set; } = 0.78; // 材质 1（半透明）时的窗口不透明度
         public int PanelWidth { get; set; } = 240;
         public double UIScale { get; set; } = 1.0;

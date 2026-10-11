@@ -57,7 +57,7 @@ namespace LiteMonitor.src.UI.Helpers
             StartTopMostTimer();
 
             // 磨砂模式：透明键只需启动时设置一次（运行中切换 TransparencyKey 有重建窗口句柄之虞）
-            if (_cfg.EdgeBarMaterial == 2) _form.TransparencyKey = EdgeBarRenderer.AcrylicKeyColor;
+            if (_cfg.EdgeBarMaterial >= 2) _form.TransparencyKey = EdgeBarRenderer.AcrylicKeyColor;
         }
 
         // =================================================================
@@ -124,12 +124,12 @@ namespace LiteMonitor.src.UI.Helpers
             {
                 _form.Opacity = Math.Clamp(_cfg.EdgeBarTintOpacity, 0.5, 1.0);
             }
-            else if (mat == 2)
+            else if (mat >= 2)
             {
                 if (_form.TransparencyKey != EdgeBarRenderer.AcrylicKeyColor)
                     _form.TransparencyKey = EdgeBarRenderer.AcrylicKeyColor;
                 _form.Opacity = 1.0;      // 磨砂自带透明，避免与整窗不透明度叠出灰
-                _winHelper.SetBackdrop(3); // Win11 亚克力背板（老式 accent 在本机 26100 上表现为近不透明白纱，弃用）
+                _winHelper.SetBackdrop(mat == 3 ? 2 : 3);   // 3=云母(Mica) / 2=亚克力（DWMSBT：2=MainWindow 3=Transient）
             }
             _winHelper.SetCornerPreference(MainFormWinHelper.CornerRoundSmall);
         }

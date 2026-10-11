@@ -34,6 +34,13 @@ namespace LiteMonitor
         /// <summary>磨砂卡专用：轨道加深（浅色轨道会在灰底上"隐身"，加深后胶囊轮廓保持清晰）</summary>
         private static readonly Color FrostTrack = Color.FromArgb(0xC4, 0xCA, 0xD6);
 
+        /// <summary>云母卡专用：柔和填充色（淡一档——高饱和填充在浅卡上会"抢眼"，观感像撑出胶囊）</summary>
+        private static readonly Color SoftUp = Color.FromArgb(0xB4, 0xBE, 0xFE);
+        private static readonly Color SoftDown = Color.FromArgb(0x94, 0xE2, 0xD5);
+        private static readonly Color SoftGreen = Color.FromArgb(0xA6, 0xE3, 0xA1);
+        private static readonly Color SoftAmber = Color.FromArgb(0xF9, 0xE2, 0xAF);
+        private static readonly Color SoftRed = Color.FromArgb(0xF3, 0x8B, 0xA8);
+
         private static double NetPct(float? bps)
         {
             if (!bps.HasValue || bps.Value <= 0) return 0;
@@ -107,13 +114,15 @@ namespace LiteMonitor
 
             double mem = Math.Clamp(memPct ?? 0, 0, 100);
             Color trackColor = frost ? FrostTrack : ThemeManager.ParseColor(t.Color.BarBackground);   // 磨砂底上用加深轨道，否则胶囊轮廓会被灰底吞掉
-            Color memColor = ThemeManager.ParseColor(
-                mem >= memCrit ? t.Color.BarHigh :
-                mem >= memWarn ? t.Color.BarMid : t.Color.BarLow);
+            Color memColor = mica
+                ? (mem >= memCrit ? SoftRed : mem >= memWarn ? SoftAmber : SoftGreen)
+                : ThemeManager.ParseColor(
+                    mem >= memCrit ? t.Color.BarHigh :
+                    mem >= memWarn ? t.Color.BarMid : t.Color.BarLow);
 
             bool lightTheme = ThemeManager.ParseColor(t.Color.Background).GetBrightness() > 0.6;
-            Color downColor = lightTheme ? Color.FromArgb(23, 146, 153) : Color.FromArgb(148, 226, 213);
-            Color upColor = lightTheme ? Color.FromArgb(114, 135, 253) : Color.FromArgb(180, 190, 254);
+            Color downColor = mica ? SoftDown : (lightTheme ? Color.FromArgb(23, 146, 153) : Color.FromArgb(148, 226, 213));
+            Color upColor = mica ? SoftUp : (lightTheme ? Color.FromArgb(114, 135, 253) : Color.FromArgb(180, 190, 254));
             Color divColor = Color.FromArgb(60, ThemeManager.ParseColor(t.Color.TextGroup));
 
             using var trackBrush = new SolidBrush(trackColor);

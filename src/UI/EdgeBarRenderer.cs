@@ -42,6 +42,31 @@ namespace LiteMonitor
             return Math.Max(0, Math.Min(1, p));
         }
 
+        /// <summary>仅"外端"带圆角的矩形路径（进度填充用：外端跟随胶囊圆弧、进度端保持平直）</summary>
+        private static GraphicsPath MakeEndRoundRect(Rectangle r, float radius, bool vertical)
+        {
+            var path = new GraphicsPath();
+            float d = Math.Min(radius * 2f, Math.Min(r.Width, r.Height));
+            if (d <= 1f) { path.AddRectangle(r); return path; }
+            if (vertical)
+            {
+                path.AddArc(r.X, r.Bottom - d, d, d, 90, 90);          // 左下
+                path.AddLine(r.X, r.Y, r.Right, r.Y);                  // 顶边（进度端，平直）
+                path.AddLine(r.Right, r.Y, r.Right, r.Bottom - d);
+                path.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90);   // 右下
+                path.CloseFigure();
+            }
+            else
+            {
+                path.AddArc(r.X, r.Y, d, d, 180, 90);                  // 左上
+                path.AddLine(r.Right, r.Y, r.Right, r.Bottom);
+                path.AddLine(r.Right, r.Bottom, r.X + d / 2, r.Bottom);
+                path.AddArc(r.X, r.Bottom - d, d, d, 90, 90);          // 左下
+                path.CloseFigure();
+            }
+            return path;
+        }
+
         private static GraphicsPath MakeRoundRect(Rectangle r, float radius)
         {
             var path = new GraphicsPath();
@@ -163,12 +188,9 @@ namespace LiteMonitor
             g.FillPath(track, path);
             if (pct >= 0.02)
             {
-                int vp = bi > 0 ? bi : 1;   // 纵向端头留 1px：填充是硬裁剪，留出轨道平滑的圆端
-                int fh = (int)((r.Height - vp * 2) * pct);
-                var st = g.Save();
-                g.SetClip(path);
-                g.FillRectangle(fill, r.X + bi, r.Bottom - vp - fh, r.Width - bi * 2, fh);
-                g.Restore(st);
+                int fh = (int)((r.Height - bi * 2) * pct);
+                using var fp = MakeEndRoundRect(new Rectangle(r.X + bi, r.Bottom - bi - fh, r.Width - bi * 2, fh), endR, true);
+                g.FillPath(fill, fp);   // 外端圆角跟随胶囊、进度端平直（不再用方角+硬裁剪，圆弧端头不再露角）
             }
         }
 
@@ -192,12 +214,9 @@ namespace LiteMonitor
             g.FillPath(track, path);
             if (pct >= 0.02)
             {
-                int hp = bi > 0 ? bi : 1;   // 横向端头同样留 1px
-                int fw = (int)((r.Width - hp * 2) * pct);
-                var st = g.Save();
-                g.SetClip(path);
-                g.FillRectangle(fill, r.X + hp, r.Y + bi, fw, r.Height - bi * 2);
-                g.Restore(st);
+                int fw = (int)((r.Width - bi * 2) * pct);
+                using var fp = MakeEndRoundRect(new Rectangle(r.X + bi, r.Y + bi, fw, r.Height - bi * 2), endR, false);
+                g.FillPath(fill, fp);   // 外端（左）圆角跟随胶囊、进度端平直
             }
         }
     }

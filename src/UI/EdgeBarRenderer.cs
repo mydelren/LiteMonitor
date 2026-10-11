@@ -56,7 +56,8 @@ namespace LiteMonitor
             if (formW <= 0 || formH <= 0) return;
 
             var oldSmoothing = g.SmoothingMode;
-            g.SmoothingMode = SmoothingMode.AntiAlias;
+            // 磨砂模式下必须关抗锯齿：AA 边缘会与近黑的"透明键"底色混色，在上/左侧留下 1px 黑描边（实测）
+            g.SmoothingMode = material == 2 ? SmoothingMode.None : SmoothingMode.AntiAlias;
 
             // 整窗铺卡片底色（含伸出屏幕外的部分；圆角与阴影由 Win11 DWM 提供）
             // 材质 2 = 磨砂：铺"透明键"色，由 TransparencyKey + 亚克力背板接管底色；其余材质铺主题卡面色

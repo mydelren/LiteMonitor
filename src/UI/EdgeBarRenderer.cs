@@ -66,6 +66,9 @@ namespace LiteMonitor
             bool frost = material >= 2;      // 2=磨砂(亚克力) 3=磨砂(云母)
             bool mica = material >= 3;       // 云母：留空色=卡面色 → AA 无晕可选，端头全圆
             var oldSmoothing = g.SmoothingMode;
+            var oldOffset = g.PixelOffsetMode;
+            // GDI+ AA 默认带半像素偏移（轨道发虚、填充锐利，两者错位）→ Half 校正：整数边利落、圆弧平滑，填充与轨道对齐
+            g.PixelOffsetMode = PixelOffsetMode.Half;
             // 亚克力（底色漂移，无固定色可配 AA）必须关 AA 防晕；云母留空色与卡面一致，AA 全开
             g.SmoothingMode = (frost && !mica) ? SmoothingMode.None : SmoothingMode.AntiAlias;
             float endR = (frost && !mica) ? 2f : BarW / 2f;   // 亚克力端头 2px（抗阶梯），其余全圆
@@ -106,7 +109,7 @@ namespace LiteMonitor
                 int memY = netY + BarW + Gap;
                 int left = EndPad;
                 int w = formW - EndPad * 2;
-                if (w < 20) { g.SmoothingMode = oldSmoothing; return; }
+                if (w < 20) { g.SmoothingMode = oldSmoothing; g.PixelOffsetMode = oldOffset; return; }
 
                 DrawBidirectionalH(g, upBrush, downBrush, divPen, trackBrush, new Rectangle(left, netY, w, BarW), upP, downP, endR, bi);
                 DrawBarH(g, trackBrush, memBrush, new Rectangle(left, memY, w, BarW), mem / 100.0, endR, bi);
@@ -116,7 +119,7 @@ namespace LiteMonitor
                 // ===== 右/左缘：竖条（上传向上、下载向下；内存自下而上）=====
                 int barTop = EndPad;
                 int barH = formH - EndPad * 2;
-                if (barH < 20) { g.SmoothingMode = oldSmoothing; return; }
+                if (barH < 20) { g.SmoothingMode = oldSmoothing; g.PixelOffsetMode = oldOffset; return; }
 
                 int netX, memX;
                 if (dock == MainFormBizHelper.DockEdge.Right)
@@ -137,6 +140,7 @@ namespace LiteMonitor
             }
 
             g.SmoothingMode = oldSmoothing;
+            g.PixelOffsetMode = oldOffset;
         }
 
         private static void DrawBidirectionalV(Graphics g, Brush up, Brush down, Pen div, Brush track, Rectangle r, double upP, double downP, float endR, int bi)

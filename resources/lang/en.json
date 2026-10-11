@@ -118,6 +118,8 @@
     "ClampToScreen": "Clamp to Screen",
     "AutoHide": "Auto Hide",
     "ClickThrough": "Click Through",
+    "EdgeBar": "Edge Info Bar",
+    "EdgeBarWidth": "Edge Bar Width",
     "DoubleClickAction": "Double Click",
     "ActionSwitchLayout": "Switch Layout",
     "ActionToggleVisible": "Show/Hide",

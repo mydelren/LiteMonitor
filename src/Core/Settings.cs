@@ -25,6 +25,9 @@ namespace LiteMonitor
         public bool ClickThrough { get; set; } = false;
         public bool AutoHide { get; set; } = true;
         public bool ClampToScreen { get; set; } = true;
+        // ====== 贴边信息条（收起态显示网速双向条 + 内存条） ======
+        public bool EdgeBarEnabled { get; set; } = true;   // 开关（关闭则恢复原 4px 行为）
+        public int EdgeBarWidth { get; set; } = 32;        // 收起后可见宽度 px（使用时会夹在 10-48）
         public int PanelWidth { get; set; } = 240;
         public double UIScale { get; set; } = 1.0;
 

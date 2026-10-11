@@ -50,6 +50,9 @@ namespace LiteMonitor
             }
         }
 
+        // 供 UIController 读取贴边收起状态（信息条渲染需要）
+        public MainFormBizHelper BizHelper => _bizHelper;
+
         // ========== 代理方法 (保持兼容性) ==========
         public void SetClickThrough(bool enable) => _winHelper.SetClickThrough(enable);
         public void InitAutoHideTimer() => _bizHelper.StartTimer();

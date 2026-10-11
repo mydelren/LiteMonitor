@@ -27,13 +27,15 @@ namespace LiteMonitor.src.UI.Helpers
         private System.Windows.Forms.Timer? _autoHideTimer;
         private System.Windows.Forms.Timer? _topMostTimer;
         private bool _isHidden = false;
-        private readonly int _hideWidth = 4;
+        private const int HideWidthPlain = 4;   // 未启用贴边信息条时的可见宽度
+        private int HideWidth => _cfg.EdgeBarEnabled ? Math.Clamp(_cfg.EdgeBarWidth, 10, 48) : HideWidthPlain;
         private readonly int _hideThreshold = 10;
-        private enum DockEdge { None, Left, Right, Top, Bottom }
+        public enum DockEdge { None, Left, Right, Top, Bottom }
         private DockEdge _dock = DockEdge.None;
         private DateTime _keepVisibleUntil = DateTime.MinValue;
 
         public bool IsHidden => _isHidden;
+        public DockEdge CurrentDock => _dock;
         public bool IsDragging { get; set; } = false;
 
         public MainFormBizHelper(Form form, Settings cfg, UIController ui, MainFormWinHelper winHelper)
@@ -126,9 +128,9 @@ namespace LiteMonitor.src.UI.Helpers
             // 靠边 -> 隐藏
             if (!_isHidden && shouldHide && !_form.Bounds.Contains(cursor))
             {
-                if (nearRight) { _form.Left = area.Right - _hideWidth; _dock = DockEdge.Right; }
-                else if (nearLeft) { _form.Left = area.Left - (_form.Width - _hideWidth); _dock = DockEdge.Left; }
-                else if (nearTop) { _form.Top = area.Top - (_form.Height - _hideWidth); _dock = DockEdge.Top; }
+                if (nearRight) { _form.Left = area.Right - HideWidth; _dock = DockEdge.Right; }
+                else if (nearLeft) { _form.Left = area.Left - (_form.Width - HideWidth); _dock = DockEdge.Left; }
+                else if (nearTop) { _form.Top = area.Top - (_form.Height - HideWidth); _dock = DockEdge.Top; }
                 _isHidden = true;
                 return;
             }
@@ -139,9 +141,9 @@ namespace LiteMonitor.src.UI.Helpers
                 const int hoverBand = 30;
                 bool isMouseOnHiddenPanel = false;
 
-                if (_dock == DockEdge.Right) isMouseOnHiddenPanel = cursor.X >= area.Right - _hideWidth && cursor.Y >= _form.Top && cursor.Y <= _form.Top + _form.Height;
-                else if (_dock == DockEdge.Left) isMouseOnHiddenPanel = cursor.X <= area.Left + _hideWidth && cursor.Y >= _form.Top && cursor.Y <= _form.Top + _form.Height;
-                else if (_dock == DockEdge.Top) isMouseOnHiddenPanel = cursor.Y <= area.Top + _hideWidth && cursor.X >= _form.Left && cursor.X <= _form.Left + _form.Width;
+                if (_dock == DockEdge.Right) isMouseOnHiddenPanel = cursor.X >= area.Right - HideWidth && cursor.Y >= _form.Top && cursor.Y <= _form.Top + _form.Height;
+                else if (_dock == DockEdge.Left) isMouseOnHiddenPanel = cursor.X <= area.Left + HideWidth && cursor.Y >= _form.Top && cursor.Y <= _form.Top + _form.Height;
+                else if (_dock == DockEdge.Top) isMouseOnHiddenPanel = cursor.Y <= area.Top + HideWidth && cursor.X >= _form.Left && cursor.X <= _form.Left + _form.Width;
 
                 if (isMouseOnHiddenPanel)
                 {

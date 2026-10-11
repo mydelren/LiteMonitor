@@ -118,6 +118,8 @@
     "ClampToScreen": "靠边自动吸附",
     "AutoHide": "靠边自动隐藏",
     "ClickThrough": "鼠标穿透",
+    "EdgeBar": "贴边信息条",
+    "EdgeBarWidth": "贴边条宽度",
     "DoubleClickAction": "双击动作触发",
     "ActionSwitchLayout": "切换横竖屏模式",
     "ActionToggleVisible": "显示/隐藏主界面",

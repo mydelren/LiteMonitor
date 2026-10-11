@@ -57,6 +57,10 @@ namespace LiteMonitor.src.UI.SettingsPage
             group.AddToggle(this, "Menu.AutoHide", () => Config.AutoHide, v => Config.AutoHide = v);
             group.AddToggle(this, "Menu.ClickThrough", () => Config.ClickThrough, v => Config.ClickThrough = v);
 
+            // 贴边信息条（收起时显示网速+内存） + 宽度
+            group.AddToggle(this, "Menu.EdgeBar", () => Config.EdgeBarEnabled, v => Config.EdgeBarEnabled = v);
+            group.AddInt(this, "Menu.EdgeBarWidth", "px", () => Config.EdgeBarWidth, v => Config.EdgeBarWidth = v);
+
             // 3. Double Click Action
             string[] actions = { 
                 LanguageManager.T("Menu.ActionSwitchLayout"),

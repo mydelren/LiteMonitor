@@ -44,6 +44,7 @@ namespace LiteMonitor.src.UI.Helpers
             // 改回完全依赖 StartFadeIn 方法来控制，并且那个方法是在 OnShown 之后调用的
             
             ApplyRoundedCorners();
+            EnableDwmShadow();
             if (clickThrough) SetClickThrough(true);
 
             // 绑定 Resize 事件以自动重绘圆角
@@ -178,6 +179,20 @@ namespace LiteMonitor.src.UI.Helpers
         }
 
         // =================================================================
+        // Win11 原生阴影（无边框窗口启用 DWM 阴影/描边）
+        // =================================================================
+        public void EnableDwmShadow()
+        {
+            try
+            {
+                if (!_form.IsHandleCreated) return;
+                var margins = new MARGINS { cxLeftWidth = 1, cxRightWidth = 1, cyTopHeight = 1, cyBottomHeight = 1 };
+                DwmExtendFrameIntoClientArea(_form.Handle, ref margins);
+            }
+            catch { }
+        }
+
+        // =================================================================
         // Win32 API
         // =================================================================
         public static int RegisterTaskbarCreatedMessage()
@@ -191,6 +206,8 @@ namespace LiteMonitor.src.UI.Helpers
         }
 
         [DllImport("dwmapi.dll")] private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
+        [DllImport("dwmapi.dll")] private static extern int DwmExtendFrameIntoClientArea(IntPtr hwnd, ref MARGINS margins);
+        [StructLayout(LayoutKind.Sequential)] private struct MARGINS { public int cxLeftWidth, cxRightWidth, cyTopHeight, cyBottomHeight; }
         [DllImport("user32.dll", SetLastError = true)] private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
         [DllImport("user32.dll", SetLastError = true)] private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
         [DllImport("user32.dll", SetLastError = true)] private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint flags);

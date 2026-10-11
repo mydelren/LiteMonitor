@@ -7,23 +7,21 @@ using LiteMonitor.src.UI.Helpers;
 namespace LiteMonitor
 {
     /// <summary>
-    /// 贴边收起态信息条渲染器（v2：紧凑胶囊卡片）
-    /// · 收起后只保留一块 32×64 的小卡片（由 MainFormBizHelper 用 Region 裁形，其余部分不可见）
-    /// · 网速条：中线双向 —— 上传向上（lavender）、下载向下（teal）；对数共用刻度（1KB/s≈8% → 100MB/s=100%）
-    /// · 内存条：线性 0-100%，阈值配色（BarLow/BarMid/BarHigh）
-    /// · 支持 右缘/左缘（竖条）与 顶缘（横条）；横条时上传向左、下载向右
+    /// 贴边收起态信息条渲染器（v5「原生」）
+    /// · 收起 = 窗口真实缩小为小卡片（右/左缘=竖条，顶缘=横条）；Win11 原生圆角与阴影由 DWM 提供
+    /// · 窗口向外多伸出 Overhang 像素：藏掉外侧圆角，可见侧形成"左弧右平、直抵屏幕边"
+    /// · 两根胶囊条同宽；网速=中线双向（上传向上/下载向下，对数共用刻度），内存=线性阈值色
     /// </summary>
     public static class EdgeBarRenderer
     {
-        public const int PieceLength = 64;   // 收起卡片长度（竖条高 / 横条宽）
-        public const int PieceRadius = 12;   // 卡片圆角（圆润一点更优雅）
+        public const int EdgeBarLength = 72;    // 卡片可见长度（竖条=高 / 横条=宽）
+        public const int EdgeBarOverhang = 6;   // 伸出屏幕外的部分（藏外侧圆角）
 
-        private const int MarginNear = 5;    // 靠桌面内容一侧留白
-        private const int MarginFar = 4;     // 靠屏幕边一侧留白
-        private const int Gap = 2;           // 两条之间
-        private const int NetWidth = 12;     // 网速条厚度
-        private const int MemWidth = 9;      // 内存条厚度
-        private const int BarInset = 1;      // 填充内缩
+        private const int MarginNear = 3;       // 条组靠桌面内容一侧留白
+        private const int Gap = 2;              // 两条之间
+        private const int BarW = 8;             // 条宽（两根一致）
+        private const int EndPad = 6;           // 长轴两端留白（收紧，只为收住）
+        private const int BarInset = 1;         // 填充内缩
         private const double LogMaxKb = 100.0 * 1024; // 对数满格 = 100 MB/s
 
         private static double NetPct(float? bps)
@@ -34,22 +32,7 @@ namespace LiteMonitor
             return Math.Max(0, Math.Min(1, p));
         }
 
-        /// <summary>收起卡片在窗口坐标系中的矩形（窗口其余部分用 Region 裁掉）</summary>
-        public static Rectangle GetPieceRect(MainFormBizHelper.DockEdge dock, int formW, int formH, int stripWidth)
-        {
-            stripWidth = Math.Clamp(stripWidth, 10, 48);
-            int maxLen = (dock == MainFormBizHelper.DockEdge.Top ? formW : formH) - 20;
-            int len = Math.Min(PieceLength, Math.Max(24, maxLen));
-            return dock switch
-            {
-                MainFormBizHelper.DockEdge.Right => new Rectangle(0, (formH - len) / 2, stripWidth, len),
-                MainFormBizHelper.DockEdge.Left => new Rectangle(formW - stripWidth, (formH - len) / 2, stripWidth, len),
-                MainFormBizHelper.DockEdge.Top => new Rectangle((formW - len) / 2, formH - stripWidth, len, stripWidth),
-                _ => Rectangle.Empty
-            };
-        }
-
-        public static GraphicsPath MakeRoundRect(Rectangle r, float radius)
+        private static GraphicsPath MakeRoundRect(Rectangle r, float radius)
         {
             var path = new GraphicsPath();
             float d = Math.Min(radius * 2f, Math.Min(r.Width, r.Height));
@@ -62,26 +45,20 @@ namespace LiteMonitor
             return path;
         }
 
-        public static void Render(Graphics g, Theme t, MainFormBizHelper.DockEdge dock, int stripWidth,
-                                  int formWidth, int formHeight,
+        public static void Render(Graphics g, Theme t, MainFormBizHelper.DockEdge dock, int visibleW,
+                                  int formW, int formH,
                                   float? memPct, float? netUpBps, float? netDownBps,
                                   double memWarn, double memCrit)
         {
             if (dock == MainFormBizHelper.DockEdge.None || dock == MainFormBizHelper.DockEdge.Bottom) return;
-            if (formWidth <= 0 || formHeight <= 0) return;
-
-            var piece = GetPieceRect(dock, formWidth, formHeight, stripWidth);
-            if (piece.IsEmpty || piece.Width < 12 || piece.Height < 24) return;
+            if (formW <= 0 || formH <= 0) return;
 
             var oldSmoothing = g.SmoothingMode;
             g.SmoothingMode = SmoothingMode.AntiAlias;
 
-            // ===== 卡片背景（纯色卡面、无描边——干净优雅风；同时修复未绘制区域露黑） =====
-            using (var bgPath = MakeRoundRect(piece, PieceRadius))
-            {
-                using var bgBrush = new SolidBrush(ThemeManager.ParseColor(t.Color.GroupBackground));
-                g.FillPath(bgBrush, bgPath);
-            }
+            // 整窗铺卡片底色（含伸出屏幕外的部分；圆角与阴影由 Win11 DWM 提供）
+            using (var bgBrush = new SolidBrush(ThemeManager.ParseColor(t.Color.GroupBackground)))
+                g.FillRectangle(bgBrush, 0, 0, formW, formH);
 
             double mem = Math.Clamp(memPct ?? 0, 0, 100);
             Color trackColor = ThemeManager.ParseColor(t.Color.BarBackground);
@@ -89,7 +66,6 @@ namespace LiteMonitor
                 mem >= memCrit ? t.Color.BarHigh :
                 mem >= memWarn ? t.Color.BarMid : t.Color.BarLow);
 
-            // 网速双向条配色：Catppuccin（teal=下载 / lavender=上传），按主题背景明暗自动选择
             bool lightTheme = ThemeManager.ParseColor(t.Color.Background).GetBrightness() > 0.6;
             Color downColor = lightTheme ? Color.FromArgb(23, 146, 153) : Color.FromArgb(148, 226, 213);
             Color upColor = lightTheme ? Color.FromArgb(114, 135, 253) : Color.FromArgb(180, 190, 254);
@@ -107,26 +83,38 @@ namespace LiteMonitor
             if (dock == MainFormBizHelper.DockEdge.Top)
             {
                 // ===== 顶缘：横条（上传向左、下载向右；内存自左向右）=====
-                int barLeft = piece.X + MarginNear;
-                int barW = piece.Width - MarginNear - MarginFar;
-                int netY = piece.Y + MarginNear;
-                int memY = netY + NetWidth + Gap;
-                if (barW < 20) { g.SmoothingMode = oldSmoothing; return; }
+                int netY = EdgeBarOverhang + MarginNear;
+                int memY = netY + BarW + Gap;
+                int left = EndPad;
+                int w = formW - EndPad * 2;
+                if (w < 20) { g.SmoothingMode = oldSmoothing; return; }
 
-                DrawBidirectionalH(g, upBrush, downBrush, divPen, trackBrush, new Rectangle(barLeft, netY, barW, NetWidth), upP, downP);
-                DrawBarH(g, trackBrush, memBrush, new Rectangle(barLeft, memY, barW, MemWidth), mem / 100.0);
+                DrawBidirectionalH(g, upBrush, downBrush, divPen, trackBrush, new Rectangle(left, netY, w, BarW), upP, downP);
+                DrawBarH(g, trackBrush, memBrush, new Rectangle(left, memY, w, BarW), mem / 100.0);
             }
             else
             {
                 // ===== 右/左缘：竖条（上传向上、下载向下；内存自下而上）=====
-                int netX = piece.X + MarginNear;
-                int memX = netX + NetWidth + Gap;
-                int barTop = piece.Y + MarginNear;
-                int barH = piece.Height - MarginNear - MarginFar;
+                int barTop = EndPad;
+                int barH = formH - EndPad * 2;
                 if (barH < 20) { g.SmoothingMode = oldSmoothing; return; }
 
-                DrawBidirectionalV(g, upBrush, downBrush, divPen, trackBrush, new Rectangle(netX, barTop, NetWidth, barH), upP, downP);
-                DrawBarV(g, trackBrush, memBrush, new Rectangle(memX, barTop, MemWidth, barH), mem / 100.0);
+                int netX, memX;
+                if (dock == MainFormBizHelper.DockEdge.Right)
+                {
+                    // 桌面侧在左：网速条在前
+                    netX = MarginNear;
+                    memX = netX + BarW + Gap;
+                }
+                else
+                {
+                    // 左缘：镜像（桌面侧在右，网速条仍在前）
+                    netX = formW - MarginNear - BarW;
+                    memX = netX - Gap - BarW;
+                }
+
+                DrawBidirectionalV(g, upBrush, downBrush, divPen, trackBrush, new Rectangle(netX, barTop, BarW, barH), upP, downP);
+                DrawBarV(g, trackBrush, memBrush, new Rectangle(memX, barTop, BarW, barH), mem / 100.0);
             }
 
             g.SmoothingMode = oldSmoothing;

@@ -1,9 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Drawing;
-using System.Drawing.Drawing2D;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -30,12 +28,12 @@ namespace LiteMonitor.src.UI.Helpers
         private System.Windows.Forms.Timer? _topMostTimer;
         private bool _isHidden = false;
         private const int HideWidthPlain = 4;   // 未启用贴边信息条时的可见宽度
-        private int HideWidth => _cfg.EdgeBarEnabled ? Math.Clamp(_cfg.EdgeBarWidth, 10, 48) : HideWidthPlain;
+        private int EdgeVisibleWidth => Math.Clamp(_cfg.EdgeBarWidth, 14, 48);
         private readonly int _hideThreshold = 10;
         public enum DockEdge { None, Left, Right, Top, Bottom }
         private DockEdge _dock = DockEdge.None;
         private DateTime _keepVisibleUntil = DateTime.MinValue;
-        private IntPtr _edgeRegionHandle = IntPtr.Zero;   // 已应用紧凑区域时的窗口句柄（用于检测句柄重建）
+        private Size _normalClientSize = Size.Empty;   // 收起前的正常窗口尺寸（收起态 = 小卡片窗口）
 
         public bool IsHidden => _isHidden;
         public DockEdge CurrentDock => _dock;
@@ -77,59 +75,38 @@ namespace LiteMonitor.src.UI.Helpers
             if (_isHidden)
             {
                 _isHidden = false;
-                _dock = DockEdge.None;
-                ApplyEdgeRegion(false);
+                ExpandToNormal();
                 ClampToScreen(force: true); // 强制拉回
             }
             KeepVisible(3.0);
         }
 
-        /// <summary>用户拖动结束：若处于收起态则复位为正常显示（防止卡片状态被拖到屏幕中间）</summary>
+        /// <summary>用户拖动结束：若处于收起态则展开回完整面板（并贴回该缘）</summary>
         public void OnUserDragEnd()
         {
             if (_isHidden)
             {
                 _isHidden = false;
-                _dock = DockEdge.None;
-                ApplyEdgeRegion(false);
+                ExpandToNormal();
             }
             KeepVisible(2.0);
         }
 
-        /// <summary>收起/展开时切换窗体可见区域：收起=紧凑信息条卡片（Region 裁剪，其余部分不可见）</summary>
-        private void ApplyEdgeRegion(bool hidden)
+        /// <summary>从收起卡片展开回完整面板：恢复尺寸并把窗口贴回停靠的屏幕缘</summary>
+        private void ExpandToNormal()
         {
-            if (hidden && _cfg.EdgeBarEnabled && _dock != DockEdge.None)
+            var area = Screen.FromControl(_form).WorkingArea;
+            if (_normalClientSize != Size.Empty)
             {
-                var piece = EdgeBarRenderer.GetPieceRect(_dock, _form.Width, _form.Height, HideWidth);
-                if (!piece.IsEmpty)
-                {
-                    using var path = EdgeBarRenderer.MakeRoundRect(piece, EdgeBarRenderer.PieceRadius);
-                    var old = _form.Region;
-                    _form.Region = new Region(path);
-                    old?.Dispose();
-                    _edgeRegionHandle = _form.Handle;
-                    _form.Invalidate();
-                    // 残影修复：分层窗口收缩后，强制重绘"让出"的屏幕区域（否则上一帧会留在桌面上形成幽灵白条）
-                    var scr = _form.RectangleToScreen(_form.ClientRectangle);
-                    var rc = new RedrawRect { L = scr.Left - 2, T = scr.Top - 2, R = scr.Right + 2, B = scr.Bottom + 2 };
-                    RedrawWindow(IntPtr.Zero, ref rc, IntPtr.Zero, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
-                    return;
-                }
+                _form.ClientSize = _normalClientSize;
+                _normalClientSize = Size.Empty;
             }
-            // 恢复常规圆角区域
-            (_form as MainForm)?.ApplyRoundedCorners();
+            if (_dock == DockEdge.Right) _form.Left = area.Right - _form.Width;
+            else if (_dock == DockEdge.Left) _form.Left = area.Left;
+            else if (_dock == DockEdge.Top) _form.Top = area.Top;
+            _dock = DockEdge.None;
+            _form.Invalidate();
         }
-
-        // ---- 残影修复用 P/Invoke ----
-        [DllImport("user32.dll")]
-        private static extern bool RedrawWindow(IntPtr hWnd, ref RedrawRect lprcUpdate, IntPtr hrgnUpdate, uint flags);
-        [StructLayout(LayoutKind.Sequential)]
-        private struct RedrawRect { public int L, T, R, B; }
-        private const uint RDW_INVALIDATE = 0x0001;
-        private const uint RDW_ERASE = 0x0004;
-        private const uint RDW_ALLCHILDREN = 0x0080;
-        private const uint RDW_UPDATENOW = 0x0100;
 
         private void AutoHideTick(object? sender, EventArgs e) => CheckAutoHide();
 
@@ -176,53 +153,72 @@ namespace LiteMonitor.src.UI.Helpers
 
             bool shouldHide = nearLeft || nearRight || nearTop;
 
-            // 靠边 -> 隐藏
+            // 靠边 -> 收起
             if (!_isHidden && shouldHide && !_form.Bounds.Contains(cursor))
             {
-                if (nearRight) { _form.Left = area.Right - HideWidth; _dock = DockEdge.Right; }
-                else if (nearLeft) { _form.Left = area.Left - (_form.Width - HideWidth); _dock = DockEdge.Left; }
-                else if (nearTop) { _form.Top = area.Top - (_form.Height - HideWidth); _dock = DockEdge.Top; }
+                if (!_cfg.EdgeBarEnabled)
+                {
+                    // 传统模式：窗口滑出屏外，只留 4px
+                    if (nearRight) { _form.Left = area.Right - HideWidthPlain; _dock = DockEdge.Right; }
+                    else if (nearLeft) { _form.Left = area.Left - (_form.Width - HideWidthPlain); _dock = DockEdge.Left; }
+                    else if (nearTop) { _form.Top = area.Top - (_form.Height - HideWidthPlain); _dock = DockEdge.Top; }
+                    _isHidden = true;
+                    return;
+                }
+
+                // 原生信息条模式：窗口真实缩小为贴边小卡片（Win11 DWM 提供原生圆角+阴影）
+                _normalClientSize = _form.ClientSize;
+                int visW = EdgeVisibleWidth;
+                int len = EdgeBarRenderer.EdgeBarLength;
+                int over = EdgeBarRenderer.EdgeBarOverhang;
+                int ccx = _form.Left + _form.Width / 2;
+                int ccy = _form.Top + _form.Height / 2;
+
+                if (nearRight)
+                {
+                    _dock = DockEdge.Right;
+                    _form.ClientSize = new Size(visW + over, len);
+                    _form.Left = area.Right - visW;      // 右侧伸出屏幕外（藏掉外侧圆角）
+                    _form.Top = Math.Clamp(ccy - len / 2, area.Top, area.Bottom - len);
+                }
+                else if (nearLeft)
+                {
+                    _dock = DockEdge.Left;
+                    _form.ClientSize = new Size(visW + over, len);
+                    _form.Left = area.Left - over;
+                    _form.Top = Math.Clamp(ccy - len / 2, area.Top, area.Bottom - len);
+                }
+                else
+                {
+                    _dock = DockEdge.Top;
+                    _form.ClientSize = new Size(len, visW + over);
+                    _form.Top = area.Top - over;
+                    _form.Left = Math.Clamp(ccx - len / 2, area.Left, area.Right - len);
+                }
                 _isHidden = true;
-                ApplyEdgeRegion(true);
+                _form.Invalidate();
                 return;
             }
 
-            // 鼠标靠近 -> 弹出
+            // 鼠标靠近 -> 展开
             if (_isHidden)
             {
-                // 保险：Win11 下 ApplyRoundedCorners 会清空 Region（改用 DWM 圆角），句柄重建也会丢自定义区域
-                // 收起态每 tick 巡检，发现被清就立刻补回紧凑卡片区域
-                if (_cfg.EdgeBarEnabled && (_form.Region == null || _form.Handle != _edgeRegionHandle))
-                {
-                    ApplyEdgeRegion(true);
-                }
-
                 const int hoverBand = 30;
-                // 可见区域（启用信息条时为紧凑卡片；未启用时为整条缝隙）
-                var piece = _cfg.EdgeBarEnabled
-                    ? EdgeBarRenderer.GetPieceRect(_dock, _form.Width, _form.Height, HideWidth)
-                    : Rectangle.Empty;
-                int segTop = piece.IsEmpty ? _form.Top : _form.Top + piece.Y;
-                int segBottom = piece.IsEmpty ? _form.Top + _form.Height : _form.Top + piece.Bottom;
-                int segLeft = piece.IsEmpty ? _form.Left : _form.Left + piece.X;
-                int segRight = piece.IsEmpty ? _form.Left + _form.Width : _form.Left + piece.Right;
-
+                int visW = _cfg.EdgeBarEnabled ? EdgeVisibleWidth : HideWidthPlain;
                 bool isMouseOnHiddenPanel = false;
-                if (_dock == DockEdge.Right) isMouseOnHiddenPanel = cursor.X >= area.Right - HideWidth && cursor.Y >= segTop && cursor.Y <= segBottom;
-                else if (_dock == DockEdge.Left) isMouseOnHiddenPanel = cursor.X <= area.Left + HideWidth && cursor.Y >= segTop && cursor.Y <= segBottom;
-                else if (_dock == DockEdge.Top) isMouseOnHiddenPanel = cursor.Y <= area.Top + HideWidth && cursor.X >= segLeft && cursor.X <= segRight;
+                if (_dock == DockEdge.Right) isMouseOnHiddenPanel = cursor.X >= area.Right - visW && cursor.Y >= _form.Top && cursor.Y <= _form.Bottom;
+                else if (_dock == DockEdge.Left) isMouseOnHiddenPanel = cursor.X <= area.Left + visW && cursor.Y >= _form.Top && cursor.Y <= _form.Bottom;
+                else if (_dock == DockEdge.Top) isMouseOnHiddenPanel = cursor.Y <= area.Top + visW && cursor.X >= _form.Left && cursor.X <= _form.Right;
 
                 if (isMouseOnHiddenPanel)
                 {
-                    bool shown = false;
-                    if (_dock == DockEdge.Right && cursor.X >= area.Right - hoverBand) { _form.Left = area.Right - _form.Width; shown = true; }
-                    else if (_dock == DockEdge.Left && cursor.X <= area.Left + hoverBand) { _form.Left = area.Left; shown = true; }
-                    else if (_dock == DockEdge.Top && cursor.Y <= area.Top + hoverBand) { _form.Top = area.Top; shown = true; }
-                    if (shown)
+                    bool expand = (_dock == DockEdge.Right && cursor.X >= area.Right - hoverBand)
+                               || (_dock == DockEdge.Left && cursor.X <= area.Left + hoverBand)
+                               || (_dock == DockEdge.Top && cursor.Y <= area.Top + hoverBand);
+                    if (expand)
                     {
                         _isHidden = false;
-                        _dock = DockEdge.None;
-                        ApplyEdgeRegion(false);
+                        ExpandToNormal();
                     }
                 }
             }
@@ -329,7 +325,7 @@ namespace LiteMonitor.src.UI.Helpers
                 // 防止之前是 Hidden 状态，恢复后 Location 变了但 _isHidden 仍为 true，导致自动隐藏逻辑失效
                 _isHidden = false;
                 _dock = DockEdge.None;
-                ApplyEdgeRegion(false);
+                _normalClientSize = Size.Empty;
                 KeepVisible(0.5); // 短暂保持可见，让用户确认位置，随后由 Timer 自动隐藏
             }
             else

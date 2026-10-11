@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -109,12 +110,26 @@ namespace LiteMonitor.src.UI.Helpers
                     old?.Dispose();
                     _edgeRegionHandle = _form.Handle;
                     _form.Invalidate();
+                    // 残影修复：分层窗口收缩后，强制重绘"让出"的屏幕区域（否则上一帧会留在桌面上形成幽灵白条）
+                    var scr = _form.RectangleToScreen(_form.ClientRectangle);
+                    var rc = new RedrawRect { L = scr.Left - 2, T = scr.Top - 2, R = scr.Right + 2, B = scr.Bottom + 2 };
+                    RedrawWindow(IntPtr.Zero, ref rc, IntPtr.Zero, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
                     return;
                 }
             }
             // 恢复常规圆角区域
             (_form as MainForm)?.ApplyRoundedCorners();
         }
+
+        // ---- 残影修复用 P/Invoke ----
+        [DllImport("user32.dll")]
+        private static extern bool RedrawWindow(IntPtr hWnd, ref RedrawRect lprcUpdate, IntPtr hrgnUpdate, uint flags);
+        [StructLayout(LayoutKind.Sequential)]
+        private struct RedrawRect { public int L, T, R, B; }
+        private const uint RDW_INVALIDATE = 0x0001;
+        private const uint RDW_ERASE = 0x0004;
+        private const uint RDW_ALLCHILDREN = 0x0080;
+        private const uint RDW_UPDATENOW = 0x0100;
 
         private void AutoHideTick(object? sender, EventArgs e) => CheckAutoHide();
 

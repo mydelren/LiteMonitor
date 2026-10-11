@@ -28,7 +28,7 @@ namespace LiteMonitor.src.UI.Helpers
         private System.Windows.Forms.Timer? _topMostTimer;
         private bool _isHidden = false;
         private const int HideWidthPlain = 4;   // 未启用贴边信息条时的可见宽度
-        private int EdgeVisibleWidth => Math.Clamp(_cfg.EdgeBarWidth, 14, 48);
+        private int EdgeVisibleWidth => Math.Clamp(_cfg.EdgeBarWidth, 18, 48);
         private readonly int _hideThreshold = 10;
         public enum DockEdge { None, Left, Right, Top, Bottom }
         private DockEdge _dock = DockEdge.None;
@@ -36,6 +36,7 @@ namespace LiteMonitor.src.UI.Helpers
         private Size _normalClientSize = Size.Empty;   // 收起前的正常窗口尺寸（收起态 = 小卡片窗口）
         private int _preHideTop = 0;                   // 收起前的窗口 Top（左/右缘展开时还原）
         private int _preHideLeft = 0;                  // 收起前的窗口 Left（顶缘展开时还原）
+        private const uint AcrylicTint = 0xB8FFFFFF;   // 磨砂底色（ABGR：白 ≈72%）——真机按观感调
 
         public bool IsHidden => _isHidden;
         public DockEdge CurrentDock => _dock;
@@ -55,6 +56,9 @@ namespace LiteMonitor.src.UI.Helpers
             InitTray();
             if (_cfg.AutoHide) StartTimer();
             StartTopMostTimer();
+
+            // 磨砂模式：透明键只需启动时设置一次（运行中切换 TransparencyKey 有重建窗口句柄之虞）
+            if (_cfg.EdgeBarMaterial == 2) _form.TransparencyKey = EdgeBarRenderer.AcrylicKeyColor;
         }
 
         // =================================================================
@@ -109,7 +113,34 @@ namespace LiteMonitor.src.UI.Helpers
             else if (_dock == DockEdge.Left) { _form.Left = area.Left; _form.Top = _preHideTop; }
             else if (_dock == DockEdge.Top) { _form.Top = area.Top; _form.Left = _preHideLeft; }
             _dock = DockEdge.None;
+            RestoreCardMaterial();
             _form.Invalidate();
+        }
+
+        /// <summary>进入收起态：按设置应用卡片材质（0=纯色 1=半透明 2=磨砂亚克力），并换成小圆角档</summary>
+        private void ApplyCardMaterial()
+        {
+            int mat = _cfg.EdgeBarMaterial;
+            if (mat == 1)
+            {
+                _form.Opacity = Math.Clamp(_cfg.EdgeBarTintOpacity, 0.5, 1.0);
+            }
+            else if (mat == 2)
+            {
+                if (_form.TransparencyKey != EdgeBarRenderer.AcrylicKeyColor)
+                    _form.TransparencyKey = EdgeBarRenderer.AcrylicKeyColor;
+                _form.Opacity = 1.0;   // 磨砂自带透明，避免与整窗不透明度叠出灰
+                _winHelper.SetAcrylic(true, AcrylicTint);
+            }
+            _winHelper.SetCornerPreference(MainFormWinHelper.CornerRoundSmall);
+        }
+
+        /// <summary>离开收起态：撤掉磨砂/半透明，恢复常规圆角与窗口不透明度</summary>
+        private void RestoreCardMaterial()
+        {
+            _winHelper.SetAcrylic(false, 0);
+            _form.Opacity = Math.Clamp(_cfg.Opacity, 0.1, 1.0);
+            _winHelper.SetCornerPreference(MainFormWinHelper.CornerRound);
         }
 
         private void AutoHideTick(object? sender, EventArgs e) => CheckAutoHide();
@@ -201,6 +232,7 @@ namespace LiteMonitor.src.UI.Helpers
                     _form.Top = area.Top - over;
                     _form.Left = Math.Clamp(ccx - len / 2, area.Left, area.Right - len);
                 }
+                ApplyCardMaterial();
                 _isHidden = true;
                 _form.Invalidate();
                 return;
@@ -332,6 +364,7 @@ namespace LiteMonitor.src.UI.Helpers
                 _isHidden = false;
                 _dock = DockEdge.None;
                 _normalClientSize = Size.Empty;
+                RestoreCardMaterial();
                 KeepVisible(0.5); // 短暂保持可见，让用户确认位置，随后由 Timer 自动隐藏
             }
             else

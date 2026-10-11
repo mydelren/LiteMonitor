@@ -147,7 +147,8 @@ namespace LiteMonitor
                     _cfg.EdgeBarWidth,
                     _form.ClientSize.Width, _form.ClientSize.Height,
                     _mon.Get("MEM.Load"), _mon.Get("NET.Up"), _mon.Get("NET.Down"),
-                    _cfg.Thresholds.Load.Warn, _cfg.Thresholds.Load.Crit);
+                    _cfg.Thresholds.Load.Warn, _cfg.Thresholds.Load.Crit,
+                    _cfg.EdgeBarMaterial);
                 return;
             }
 

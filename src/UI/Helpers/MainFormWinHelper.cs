@@ -193,6 +193,57 @@ namespace LiteMonitor.src.UI.Helpers
         }
 
         // =================================================================
+        // 卡片圆角档位（收起态用小圆角）与磨砂材质（亚克力 · 试验）
+        // =================================================================
+        public const int CornerRound = 2;       // DWMWCP_ROUND（≈8px，常规面板）
+        public const int CornerRoundSmall = 3;  // DWMWCP_ROUNDSMALL（≈4px，收起小卡片）
+
+        public void SetCornerPreference(int pref)
+        {
+            try
+            {
+                if (!_form.IsHandleCreated) return;
+                int p = pref;
+                DwmSetWindowAttribute(_form.Handle, DWMWA_WINDOW_CORNER_PREFERENCE, ref p, sizeof(int));
+            }
+            catch { }
+        }
+
+        /// <summary>亚克力磨砂：系统合成器在窗口背后画模糊+色调。需窗口自身留出透明像素（Form.TransparencyKey）才可见。
+        /// gradientColor 格式 0xAABBGGRR。非官方 API，失败静默（退化 = 透明键区域直接见桌面）。</summary>
+        public void SetAcrylic(bool enable, uint gradientColor)
+        {
+            try
+            {
+                if (!_form.IsHandleCreated) return;
+                var accent = new AccentPolicy
+                {
+                    AccentState = enable ? ACCENT_ENABLE_ACRYLICBLURBEHIND : ACCENT_DISABLED,
+                    AccentFlags = 2,
+                    GradientColor = enable ? unchecked((int)gradientColor) : 0,
+                    AnimationId = 0
+                };
+                int size = Marshal.SizeOf(accent);
+                IntPtr ptr = Marshal.AllocHGlobal(size);
+                try
+                {
+                    Marshal.StructureToPtr(accent, ptr, false);
+                    var data = new WindowCompositionAttributeData { Attribute = WCA_ACCENT_POLICY, Data = ptr, SizeOfData = size };
+                    SetWindowCompositionAttribute(_form.Handle, ref data);
+                }
+                finally { Marshal.FreeHGlobal(ptr); }
+            }
+            catch { }
+        }
+
+        [StructLayout(LayoutKind.Sequential)] private struct AccentPolicy { public int AccentState, AccentFlags, GradientColor, AnimationId; }
+        [StructLayout(LayoutKind.Sequential)] private struct WindowCompositionAttributeData { public int Attribute; public IntPtr Data; public int SizeOfData; }
+        [DllImport("user32.dll")] private static extern int SetWindowCompositionAttribute(IntPtr hwnd, ref WindowCompositionAttributeData data);
+        private const int WCA_ACCENT_POLICY = 19;
+        private const int ACCENT_DISABLED = 0;
+        private const int ACCENT_ENABLE_ACRYLICBLURBEHIND = 4;
+
+        // =================================================================
         // Win32 API
         // =================================================================
         public static int RegisterTaskbarCreatedMessage()

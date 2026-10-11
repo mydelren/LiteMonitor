@@ -14,15 +14,17 @@ namespace LiteMonitor
     /// </summary>
     public static class EdgeBarRenderer
     {
-        public const int EdgeBarLength = 46;    // 卡片可见长度（竖条=高 / 横条=宽）
+        public const int EdgeBarLength = 38;    // 卡片可见长度（竖条=高 / 横条=宽）· C 档几何
         public const int EdgeBarOverhang = 6;   // 伸出屏幕外的部分（藏外侧圆角）
 
-        private const int MarginNear = 3;       // 条组靠桌面内容一侧留白
         private const int Gap = 2;              // 两条之间
-        private const int BarW = 8;             // 条宽（两根一致）
-        private const int EndPad = 6;           // 长轴两端留白（收紧，只为收住）
+        private const int BarW = 6;             // 条宽（两根一致）· C 档几何
+        private const int EndPad = 4;           // 长轴两端留白（收紧，只为收住）
         private const int BarInset = 1;         // 填充内缩
         private const double LogMaxKb = 100.0 * 1024; // 对数满格 = 100 MB/s
+
+        /// <summary>磨砂（亚克力）模式的"透明键"底色：该色像素会被 Form.TransparencyKey 透出系统模糊背板</summary>
+        public static readonly Color AcrylicKeyColor = Color.FromArgb(1, 1, 1);
 
         private static double NetPct(float? bps)
         {
@@ -48,7 +50,7 @@ namespace LiteMonitor
         public static void Render(Graphics g, Theme t, MainFormBizHelper.DockEdge dock, int visibleW,
                                   int formW, int formH,
                                   float? memPct, float? netUpBps, float? netDownBps,
-                                  double memWarn, double memCrit)
+                                  double memWarn, double memCrit, int material = 0)
         {
             if (dock == MainFormBizHelper.DockEdge.None || dock == MainFormBizHelper.DockEdge.Bottom) return;
             if (formW <= 0 || formH <= 0) return;
@@ -57,7 +59,9 @@ namespace LiteMonitor
             g.SmoothingMode = SmoothingMode.AntiAlias;
 
             // 整窗铺卡片底色（含伸出屏幕外的部分；圆角与阴影由 Win11 DWM 提供）
-            using (var bgBrush = new SolidBrush(ThemeManager.ParseColor(t.Color.GroupBackground)))
+            // 材质 2 = 磨砂：铺"透明键"色，由 TransparencyKey + 亚克力背板接管底色；其余材质铺主题卡面色
+            Color cardBg = material == 2 ? AcrylicKeyColor : ThemeManager.ParseColor(t.Color.GroupBackground);
+            using (var bgBrush = new SolidBrush(cardBg))
                 g.FillRectangle(bgBrush, 0, 0, formW, formH);
 
             double mem = Math.Clamp(memPct ?? 0, 0, 100);
@@ -80,10 +84,12 @@ namespace LiteMonitor
             double upP = NetPct(netUpBps);
             double downP = NetPct(netDownBps);
 
+            int margin = Math.Max(2, (visibleW - (BarW * 2 + Gap)) / 2);  // 条组在宽度轴内居中（随可见宽度自适应）
+
             if (dock == MainFormBizHelper.DockEdge.Top)
             {
                 // ===== 顶缘：横条（上传向左、下载向右；内存自左向右）=====
-                int netY = EdgeBarOverhang + MarginNear;
+                int netY = EdgeBarOverhang + margin;
                 int memY = netY + BarW + Gap;
                 int left = EndPad;
                 int w = formW - EndPad * 2;
@@ -103,13 +109,13 @@ namespace LiteMonitor
                 if (dock == MainFormBizHelper.DockEdge.Right)
                 {
                     // 桌面侧在左：网速条在前
-                    netX = MarginNear;
+                    netX = margin;
                     memX = netX + BarW + Gap;
                 }
                 else
                 {
                     // 左缘：镜像（桌面侧在右，网速条仍在前）
-                    netX = formW - MarginNear - BarW;
+                    netX = formW - margin - BarW;
                     memX = netX - Gap - BarW;
                 }
 

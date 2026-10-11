@@ -123,6 +123,7 @@ namespace LiteMonitor.src.Core
         public string ValueCrit { get; set; } = "#FF6666";
 
         public string BarBackground { get; set; } = "#1C1C1C";
+        public string Border { get; set; } = "#3A3A3A"; // 贴边信息条内描边（主题可配，缺省深灰）
         public string BarLow { get; set; } = "#00C853";
         public string BarMid { get; set; } = "#FFAB00";
         public string BarHigh { get; set; } = "#D50000";

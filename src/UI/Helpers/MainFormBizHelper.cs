@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -75,9 +76,41 @@ namespace LiteMonitor.src.UI.Helpers
             {
                 _isHidden = false;
                 _dock = DockEdge.None;
+                ApplyEdgeRegion(false);
                 ClampToScreen(force: true); // 强制拉回
             }
             KeepVisible(3.0);
+        }
+
+        /// <summary>用户拖动结束：若处于收起态则复位为正常显示（防止卡片状态被拖到屏幕中间）</summary>
+        public void OnUserDragEnd()
+        {
+            if (_isHidden)
+            {
+                _isHidden = false;
+                _dock = DockEdge.None;
+                ApplyEdgeRegion(false);
+            }
+            KeepVisible(2.0);
+        }
+
+        /// <summary>收起/展开时切换窗体可见区域：收起=紧凑信息条卡片（Region 裁剪，其余部分不可见）</summary>
+        private void ApplyEdgeRegion(bool hidden)
+        {
+            if (hidden && _cfg.EdgeBarEnabled && _dock != DockEdge.None)
+            {
+                var piece = EdgeBarRenderer.GetPieceRect(_dock, _form.Width, _form.Height, HideWidth);
+                if (!piece.IsEmpty)
+                {
+                    using var path = EdgeBarRenderer.MakeRoundRect(piece, EdgeBarRenderer.PieceRadius);
+                    var old = _form.Region;
+                    _form.Region = new Region(path);
+                    old?.Dispose();
+                    return;
+                }
+            }
+            // 恢复常规圆角区域
+            (_form as MainForm)?.ApplyRoundedCorners();
         }
 
         private void AutoHideTick(object? sender, EventArgs e) => CheckAutoHide();
@@ -132,6 +165,7 @@ namespace LiteMonitor.src.UI.Helpers
                 else if (nearLeft) { _form.Left = area.Left - (_form.Width - HideWidth); _dock = DockEdge.Left; }
                 else if (nearTop) { _form.Top = area.Top - (_form.Height - HideWidth); _dock = DockEdge.Top; }
                 _isHidden = true;
+                ApplyEdgeRegion(true);
                 return;
             }
 
@@ -139,17 +173,32 @@ namespace LiteMonitor.src.UI.Helpers
             if (_isHidden)
             {
                 const int hoverBand = 30;
-                bool isMouseOnHiddenPanel = false;
+                // 可见区域（启用信息条时为紧凑卡片；未启用时为整条缝隙）
+                var piece = _cfg.EdgeBarEnabled
+                    ? EdgeBarRenderer.GetPieceRect(_dock, _form.Width, _form.Height, HideWidth)
+                    : Rectangle.Empty;
+                int segTop = piece.IsEmpty ? _form.Top : _form.Top + piece.Y;
+                int segBottom = piece.IsEmpty ? _form.Top + _form.Height : _form.Top + piece.Bottom;
+                int segLeft = piece.IsEmpty ? _form.Left : _form.Left + piece.X;
+                int segRight = piece.IsEmpty ? _form.Left + _form.Width : _form.Left + piece.Right;
 
-                if (_dock == DockEdge.Right) isMouseOnHiddenPanel = cursor.X >= area.Right - HideWidth && cursor.Y >= _form.Top && cursor.Y <= _form.Top + _form.Height;
-                else if (_dock == DockEdge.Left) isMouseOnHiddenPanel = cursor.X <= area.Left + HideWidth && cursor.Y >= _form.Top && cursor.Y <= _form.Top + _form.Height;
-                else if (_dock == DockEdge.Top) isMouseOnHiddenPanel = cursor.Y <= area.Top + HideWidth && cursor.X >= _form.Left && cursor.X <= _form.Left + _form.Width;
+                bool isMouseOnHiddenPanel = false;
+                if (_dock == DockEdge.Right) isMouseOnHiddenPanel = cursor.X >= area.Right - HideWidth && cursor.Y >= segTop && cursor.Y <= segBottom;
+                else if (_dock == DockEdge.Left) isMouseOnHiddenPanel = cursor.X <= area.Left + HideWidth && cursor.Y >= segTop && cursor.Y <= segBottom;
+                else if (_dock == DockEdge.Top) isMouseOnHiddenPanel = cursor.Y <= area.Top + HideWidth && cursor.X >= segLeft && cursor.X <= segRight;
 
                 if (isMouseOnHiddenPanel)
                 {
-                    if (_dock == DockEdge.Right && cursor.X >= area.Right - hoverBand) { _form.Left = area.Right - _form.Width; _isHidden = false; _dock = DockEdge.None; }
-                    else if (_dock == DockEdge.Left && cursor.X <= area.Left + hoverBand) { _form.Left = area.Left; _isHidden = false; _dock = DockEdge.None; }
-                    else if (_dock == DockEdge.Top && cursor.Y <= area.Top + hoverBand) { _form.Top = area.Top; _isHidden = false; _dock = DockEdge.None; }
+                    bool shown = false;
+                    if (_dock == DockEdge.Right && cursor.X >= area.Right - hoverBand) { _form.Left = area.Right - _form.Width; shown = true; }
+                    else if (_dock == DockEdge.Left && cursor.X <= area.Left + hoverBand) { _form.Left = area.Left; shown = true; }
+                    else if (_dock == DockEdge.Top && cursor.Y <= area.Top + hoverBand) { _form.Top = area.Top; shown = true; }
+                    if (shown)
+                    {
+                        _isHidden = false;
+                        _dock = DockEdge.None;
+                        ApplyEdgeRegion(false);
+                    }
                 }
             }
         }
@@ -255,6 +304,7 @@ namespace LiteMonitor.src.UI.Helpers
                 // 防止之前是 Hidden 状态，恢复后 Location 变了但 _isHidden 仍为 true，导致自动隐藏逻辑失效
                 _isHidden = false;
                 _dock = DockEdge.None;
+                ApplyEdgeRegion(false);
                 KeepVisible(0.5); // 短暂保持可见，让用户确认位置，随后由 Timer 自动隐藏
             }
             else

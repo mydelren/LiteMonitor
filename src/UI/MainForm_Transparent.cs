@@ -204,7 +204,8 @@ namespace LiteMonitor
                     _ui?.SetDragging(false);
                     _uiDragging = false;
                     _bizHelper.IsDragging = false;
-                    _bizHelper.ClampToScreen(); 
+                    _bizHelper.OnUserDragEnd();
+                    _bizHelper.ClampToScreen();
                     _bizHelper.SavePos();
                 }
             };

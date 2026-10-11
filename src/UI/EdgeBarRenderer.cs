@@ -23,8 +23,9 @@ namespace LiteMonitor
         private const int BarInset = 1;         // 填充内缩
         private const double LogMaxKb = 100.0 * 1024; // 对数满格 = 100 MB/s
 
-        /// <summary>磨砂（亚克力）模式的"透明键"底色：该色像素会被 Form.TransparencyKey 透出系统模糊背板</summary>
-        public static readonly Color AcrylicKeyColor = Color.FromArgb(1, 1, 1);
+        /// <summary>磨砂模式的"留空色"：材质 2 下整窗画此纯黑（与 Form.TransparencyKey 一致），
+        /// 透出系统背板（Win11 SYSTEMBACKDROP 亚克力；背板不可用时退化为直接透底）</summary>
+        public static readonly Color AcrylicKeyColor = Color.FromArgb(0, 0, 0);
 
         private static double NetPct(float? bps)
         {

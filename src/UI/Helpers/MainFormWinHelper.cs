@@ -186,7 +186,8 @@ namespace LiteMonitor.src.UI.Helpers
             try
             {
                 if (!_form.IsHandleCreated) return;
-                var margins = new MARGINS { cxLeftWidth = 1, cxRightWidth = 1, cyTopHeight = 1, cyBottomHeight = 1 };
+                // -1 = 整窗"一块玻璃"：保留 DWM 阴影，同时让 SYSTEMBACKDROP 背板能透进客户区（磨砂模式依赖）
+                var margins = new MARGINS { cxLeftWidth = -1, cxRightWidth = -1, cyTopHeight = -1, cyBottomHeight = -1 };
                 DwmExtendFrameIntoClientArea(_form.Handle, ref margins);
             }
             catch { }
@@ -209,8 +210,20 @@ namespace LiteMonitor.src.UI.Helpers
             catch { }
         }
 
-        /// <summary>亚克力磨砂：系统合成器在窗口背后画模糊+色调。需窗口自身留出透明像素（Form.TransparencyKey）才可见。
-        /// gradientColor 格式 0xAABBGGRR。非官方 API，失败静默（退化 = 透明键区域直接见桌面）。</summary>
+        /// <summary>Win11 系统背板材质：3 = 亚克力(TransientWindow)、2 = 云母(Mica)、1 = 无。与"留空色"透底配合使用。</summary>
+        public void SetBackdrop(int type)
+        {
+            try
+            {
+                if (!_form.IsHandleCreated) return;
+                int t = type;
+                DwmSetWindowAttribute(_form.Handle, DWMWA_SYSTEMBACKDROP_TYPE, ref t, sizeof(int));
+            }
+            catch { }
+        }
+
+        /// <summary>老式亚克力 accent（备用保留）：本机实测在 Win11 26100 上表现为近不透明白纱（吃底仅 ~2%），已改用 SetBackdrop。
+        /// gradientColor 格式 0xAABBGGRR。非官方 API，失败静默。</summary>
         public void SetAcrylic(bool enable, uint gradientColor)
         {
             try
@@ -274,6 +287,7 @@ namespace LiteMonitor.src.UI.Helpers
         private const uint SWP_NOACTIVATE = 0x0010;
         private const uint SWP_NOOWNERZORDER = 0x0200;
         private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
+        private const int DWMWA_SYSTEMBACKDROP_TYPE = 38;
         private const int DWMWCP_ROUND = 2;
         private const int DWMWA_BORDER_COLOR = 34;
         private const int DWMWA_COLOR_NONE = unchecked((int)0xFFFFFFFE);

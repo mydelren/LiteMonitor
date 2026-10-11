@@ -36,7 +36,6 @@ namespace LiteMonitor.src.UI.Helpers
         private Size _normalClientSize = Size.Empty;   // 收起前的正常窗口尺寸（收起态 = 小卡片窗口）
         private int _preHideTop = 0;                   // 收起前的窗口 Top（左/右缘展开时还原）
         private int _preHideLeft = 0;                  // 收起前的窗口 Left（顶缘展开时还原）
-        private const uint AcrylicTint = 0xB8FFFFFF;   // 磨砂底色（ABGR：白 ≈72%）——真机按观感调
 
         public bool IsHidden => _isHidden;
         public DockEdge CurrentDock => _dock;
@@ -129,16 +128,15 @@ namespace LiteMonitor.src.UI.Helpers
             {
                 if (_form.TransparencyKey != EdgeBarRenderer.AcrylicKeyColor)
                     _form.TransparencyKey = EdgeBarRenderer.AcrylicKeyColor;
-                _form.Opacity = 1.0;   // 磨砂自带透明，避免与整窗不透明度叠出灰
-                _winHelper.SetAcrylic(true, AcrylicTint);
+                _form.Opacity = 1.0;      // 磨砂自带透明，避免与整窗不透明度叠出灰
+                _winHelper.SetBackdrop(3); // Win11 亚克力背板（老式 accent 在本机 26100 上表现为近不透明白纱，弃用）
             }
             _winHelper.SetCornerPreference(MainFormWinHelper.CornerRoundSmall);
         }
 
-        /// <summary>离开收起态：撤掉磨砂/半透明，恢复常规圆角与窗口不透明度</summary>
+        /// <summary>离开收起态：恢复常规不透明度与圆角（背板材质留着不碍事：面板整面不透明绘制，照不到它）</summary>
         private void RestoreCardMaterial()
         {
-            _winHelper.SetAcrylic(false, 0);
             _form.Opacity = Math.Clamp(_cfg.Opacity, 0.1, 1.0);
             _winHelper.SetCornerPreference(MainFormWinHelper.CornerRound);
         }

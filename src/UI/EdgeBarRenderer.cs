@@ -61,8 +61,10 @@ namespace LiteMonitor
 
             bool frost = material >= 2;   // 2=磨砂(亚克力) 3=磨砂(云母)
             var oldSmoothing = g.SmoothingMode;
-            // 抗锯齿常开：磨砂模式的边缘混色由 1px 深灰描边接住（早期无描边时靠关 AA 顶，端头会发硬）
-            g.SmoothingMode = SmoothingMode.AntiAlias;
+            // 磨砂模式必须关 AA：AA 的过渡像素会混向"留空色"——键色黑则出黑晕、键色浅则出白晕（实测两侧都翻过车），
+            // 只有不留过渡像素才能彻底无晕；端头圆角同时收小，降低无 AA 的阶梯感
+            g.SmoothingMode = frost ? SmoothingMode.None : SmoothingMode.AntiAlias;
+            float endR = frost ? 2f : BarW / 2f;   // 端头圆角（磨砂下 2px）
 
             // 整窗铺卡片底色（含伸出屏幕外的部分；圆角与阴影由 Win11 DWM 提供）
             // 磨砂：铺"留空"色，由 TransparencyKey + 系统背板接管底色；其余材质铺主题卡面色
@@ -101,8 +103,8 @@ namespace LiteMonitor
                 int w = formW - EndPad * 2;
                 if (w < 20) { g.SmoothingMode = oldSmoothing; return; }
 
-                DrawBidirectionalH(g, upBrush, downBrush, divPen, trackBrush, new Rectangle(left, netY, w, BarW), upP, downP);
-                DrawBarH(g, trackBrush, memBrush, new Rectangle(left, memY, w, BarW), mem / 100.0);
+                DrawBidirectionalH(g, upBrush, downBrush, divPen, trackBrush, new Rectangle(left, netY, w, BarW), upP, downP, endR);
+                DrawBarH(g, trackBrush, memBrush, new Rectangle(left, memY, w, BarW), mem / 100.0, endR);
             }
             else
             {
@@ -125,16 +127,16 @@ namespace LiteMonitor
                     memX = netX - Gap - BarW;
                 }
 
-                DrawBidirectionalV(g, upBrush, downBrush, divPen, trackBrush, new Rectangle(netX, barTop, BarW, barH), upP, downP);
-                DrawBarV(g, trackBrush, memBrush, new Rectangle(memX, barTop, BarW, barH), mem / 100.0);
+                DrawBidirectionalV(g, upBrush, downBrush, divPen, trackBrush, new Rectangle(netX, barTop, BarW, barH), upP, downP, endR);
+                DrawBarV(g, trackBrush, memBrush, new Rectangle(memX, barTop, BarW, barH), mem / 100.0, endR);
             }
 
             g.SmoothingMode = oldSmoothing;
         }
 
-        private static void DrawBidirectionalV(Graphics g, Brush up, Brush down, Pen div, Brush track, Rectangle r, double upP, double downP)
+        private static void DrawBidirectionalV(Graphics g, Brush up, Brush down, Pen div, Brush track, Rectangle r, double upP, double downP, float endR)
         {
-            using var path = MakeRoundRect(r, r.Width / 2f);
+            using var path = MakeRoundRect(r, endR);
             g.FillPath(track, path);
             int center = r.Y + r.Height / 2;
             float half = r.Height / 2f - BarInset;
@@ -146,9 +148,9 @@ namespace LiteMonitor
             g.DrawLine(div, r.X + 2, center, r.Right - 2, center);
         }
 
-        private static void DrawBarV(Graphics g, Brush track, Brush fill, Rectangle r, double pct)
+        private static void DrawBarV(Graphics g, Brush track, Brush fill, Rectangle r, double pct, float endR)
         {
-            using var path = MakeRoundRect(r, r.Width / 2f);
+            using var path = MakeRoundRect(r, endR);
             g.FillPath(track, path);
             if (pct >= 0.02)
             {
@@ -160,9 +162,9 @@ namespace LiteMonitor
             }
         }
 
-        private static void DrawBidirectionalH(Graphics g, Brush up, Brush down, Pen div, Brush track, Rectangle r, double upP, double downP)
+        private static void DrawBidirectionalH(Graphics g, Brush up, Brush down, Pen div, Brush track, Rectangle r, double upP, double downP, float endR)
         {
-            using var path = MakeRoundRect(r, r.Height / 2f);
+            using var path = MakeRoundRect(r, endR);
             g.FillPath(track, path);
             int center = r.X + r.Width / 2;
             float half = r.Width / 2f - BarInset;
@@ -174,9 +176,9 @@ namespace LiteMonitor
             g.DrawLine(div, center, r.Y + 2, center, r.Bottom - 2);
         }
 
-        private static void DrawBarH(Graphics g, Brush track, Brush fill, Rectangle r, double pct)
+        private static void DrawBarH(Graphics g, Brush track, Brush fill, Rectangle r, double pct, float endR)
         {
-            using var path = MakeRoundRect(r, r.Height / 2f);
+            using var path = MakeRoundRect(r, endR);
             g.FillPath(track, path);
             if (pct >= 0.02)
             {

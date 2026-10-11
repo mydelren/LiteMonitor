@@ -16,7 +16,7 @@ namespace LiteMonitor
     public static class EdgeBarRenderer
     {
         public const int PieceLength = 64;   // 收起卡片长度（竖条高 / 横条宽）
-        public const int PieceRadius = 10;   // 卡片圆角
+        public const int PieceRadius = 12;   // 卡片圆角（圆润一点更优雅）
 
         private const int MarginNear = 5;    // 靠桌面内容一侧留白
         private const int MarginFar = 4;     // 靠屏幕边一侧留白
@@ -76,13 +76,11 @@ namespace LiteMonitor
             var oldSmoothing = g.SmoothingMode;
             g.SmoothingMode = SmoothingMode.AntiAlias;
 
-            // ===== 卡片背景 + 1px 内描边（修复未绘制区域露黑问题） =====
+            // ===== 卡片背景（纯色卡面、无描边——干净优雅风；同时修复未绘制区域露黑） =====
             using (var bgPath = MakeRoundRect(piece, PieceRadius))
             {
-                using var bgBrush = new SolidBrush(ThemeManager.ParseColor(t.Color.Background));
+                using var bgBrush = new SolidBrush(ThemeManager.ParseColor(t.Color.GroupBackground));
                 g.FillPath(bgBrush, bgPath);
-                using var borderPen = new Pen(ThemeManager.ParseColor(t.Color.Border), 1f);
-                g.DrawPath(borderPen, bgPath);
             }
 
             double mem = Math.Clamp(memPct ?? 0, 0, 100);

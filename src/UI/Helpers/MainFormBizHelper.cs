@@ -34,6 +34,7 @@ namespace LiteMonitor.src.UI.Helpers
         public enum DockEdge { None, Left, Right, Top, Bottom }
         private DockEdge _dock = DockEdge.None;
         private DateTime _keepVisibleUntil = DateTime.MinValue;
+        private IntPtr _edgeRegionHandle = IntPtr.Zero;   // 已应用紧凑区域时的窗口句柄（用于检测句柄重建）
 
         public bool IsHidden => _isHidden;
         public DockEdge CurrentDock => _dock;
@@ -106,6 +107,8 @@ namespace LiteMonitor.src.UI.Helpers
                     var old = _form.Region;
                     _form.Region = new Region(path);
                     old?.Dispose();
+                    _edgeRegionHandle = _form.Handle;
+                    _form.Invalidate();
                     return;
                 }
             }
@@ -172,6 +175,13 @@ namespace LiteMonitor.src.UI.Helpers
             // 鼠标靠近 -> 弹出
             if (_isHidden)
             {
+                // 保险：Win11 下 ApplyRoundedCorners 会清空 Region（改用 DWM 圆角），句柄重建也会丢自定义区域
+                // 收起态每 tick 巡检，发现被清就立刻补回紧凑卡片区域
+                if (_cfg.EdgeBarEnabled && (_form.Region == null || _form.Handle != _edgeRegionHandle))
+                {
+                    ApplyEdgeRegion(true);
+                }
+
                 const int hoverBand = 30;
                 // 可见区域（启用信息条时为紧凑卡片；未启用时为整条缝隙）
                 var piece = _cfg.EdgeBarEnabled

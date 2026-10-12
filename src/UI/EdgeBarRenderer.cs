@@ -34,10 +34,10 @@ namespace LiteMonitor
         /// <summary>磨砂卡专用：轨道加深（浅色轨道会在灰底上"隐身"，加深后胶囊轮廓保持清晰）</summary>
         private static readonly Color FrostTrack = Color.FromArgb(0xC4, 0xCA, 0xD6);
 
-        /// <summary>云母卡专用：柔和填充色（淡一档——高饱和填充在浅卡上会"抢眼"，观感像撑出胶囊）</summary>
-        private static readonly Color SoftGreen = Color.FromArgb(0xA6, 0xE3, 0xA1);
-        private static readonly Color SoftAmber = Color.FromArgb(0xF9, 0xE2, 0xAF);
-        private static readonly Color SoftRed = Color.FromArgb(0xF3, 0x8B, 0xA8);
+        /// <summary>云母卡·内存条专用：柔和中档色（比淡彩深一档、比原饱和色收敛——兼顾"看得清"与"不刺眼"）</summary>
+        private static readonly Color SoftGreen = Color.FromArgb(0x62, 0xBE, 0x5E);
+        private static readonly Color SoftAmber = Color.FromArgb(0xE9, 0xA6, 0x3C);
+        private static readonly Color SoftRed = Color.FromArgb(0xE2, 0x57, 0x6E);
 
         /// <summary>云母卡·网速条专用：柔和中档色——网速条又细又短，全淡色会糊进轨道看不见（实测用户反馈），
         /// 取"够看清但不刺眼"的中间饱和度</summary>

@@ -35,11 +35,14 @@ namespace LiteMonitor
         private static readonly Color FrostTrack = Color.FromArgb(0xC4, 0xCA, 0xD6);
 
         /// <summary>云母卡专用：柔和填充色（淡一档——高饱和填充在浅卡上会"抢眼"，观感像撑出胶囊）</summary>
-        private static readonly Color SoftUp = Color.FromArgb(0xB4, 0xBE, 0xFE);
-        private static readonly Color SoftDown = Color.FromArgb(0x94, 0xE2, 0xD5);
         private static readonly Color SoftGreen = Color.FromArgb(0xA6, 0xE3, 0xA1);
         private static readonly Color SoftAmber = Color.FromArgb(0xF9, 0xE2, 0xAF);
         private static readonly Color SoftRed = Color.FromArgb(0xF3, 0x8B, 0xA8);
+
+        /// <summary>云母卡·网速条专用：柔和中档色——网速条又细又短，全淡色会糊进轨道看不见（实测用户反馈），
+        /// 取"够看清但不刺眼"的中间饱和度</summary>
+        private static readonly Color MicaUp = Color.FromArgb(0x7C, 0x8C, 0xF5);
+        private static readonly Color MicaDown = Color.FromArgb(0x3B, 0xA7, 0xA9);
 
         private static double NetPct(float? bps)
         {
@@ -121,8 +124,8 @@ namespace LiteMonitor
                     mem >= memWarn ? t.Color.BarMid : t.Color.BarLow);
 
             bool lightTheme = ThemeManager.ParseColor(t.Color.Background).GetBrightness() > 0.6;
-            Color downColor = mica ? SoftDown : (lightTheme ? Color.FromArgb(23, 146, 153) : Color.FromArgb(148, 226, 213));
-            Color upColor = mica ? SoftUp : (lightTheme ? Color.FromArgb(114, 135, 253) : Color.FromArgb(180, 190, 254));
+            Color downColor = mica ? MicaDown : (lightTheme ? Color.FromArgb(23, 146, 153) : Color.FromArgb(148, 226, 213));
+            Color upColor = mica ? MicaUp : (lightTheme ? Color.FromArgb(114, 135, 253) : Color.FromArgb(180, 190, 254));
             Color divColor = Color.FromArgb(60, ThemeManager.ParseColor(t.Color.TextGroup));
 
             using var trackBrush = new SolidBrush(trackColor);

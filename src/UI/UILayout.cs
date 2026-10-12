@@ -107,8 +107,11 @@ namespace LiteMonitor
                 {
                     if (buffer2Col.Count == 0) return;
 
-                    // 计算双列高度 (取标准行高)
-                    int twoLineH = rowH;
+                    // 双列行高按字体自适应：标签行 = 标签字高，数值行 = 数值字高（rowH 仅作下限）
+                    // —— 旧实现按 rowH/2 平分会把大字号数值的下缘硬切掉（实测 12.5pt 需 22px、只给了 15px）
+                    int labelH = _t.FontItem.Height + 1;
+                    int valueH = _t.FontValue.Height + 2;
+                    int twoLineH = Math.Max(rowH, labelH + valueH);
                     int colWidth = w / 2;
 
                     // 如果只有1个，也占一半还是全宽？为了对齐，占一半比较合理，或者左对齐
@@ -119,16 +122,15 @@ namespace LiteMonitor
 
                         // i=0 -> 左列, i=1 -> 右列
                         int itemX = (i == 0) ? x : x + colWidth;
-                        
+
                         // 区域
                         it.Bounds = new Rectangle(itemX, itemY, colWidth, twoLineH);
 
-                        // 内部上下平分
-                        int halfH = twoLineH / 2;
-                        it.LabelRect = new Rectangle(itemX, itemY, colWidth, halfH);
-                        it.ValueRect = new Rectangle(itemX, itemY + halfH, colWidth, twoLineH - halfH);
+                        // 标签/数值各按自己的字高
+                        it.LabelRect = new Rectangle(itemX, itemY, colWidth, labelH);
+                        it.ValueRect = new Rectangle(itemX, itemY + labelH, colWidth, twoLineH - labelH);
                     }
-                    
+
                     // 移动 Y 轴 (双列共用一行高度)
                     itemY += twoLineH + _t.Layout.ItemGap;
                     buffer2Col.Clear();
@@ -161,19 +163,24 @@ namespace LiteMonitor
                         FlushBuffer();
 
                         it.Style = MetricRenderStyle.StandardBar;
-                        it.Bounds = new Rectangle(x, itemY, w, rowH);
-                        var inner = new Rectangle(x + innerPad, itemY, w - innerPadTotal, rowH);
-                        
-                        int topH = (int)(inner.Height * 0.60);
+
+                        // 行高自适应：文字区必须容得下更高的那个字体（标签与数值同行排布）
+                        int textNeed = Math.Max(_t.FontItem.Height, _t.FontValue.Height) + 2;
+                        int barH = Math.Max(barMinH, (int)(rowH * 0.23));
+                        int itemH = Math.Max(rowH, textNeed + barH + barBotGap + 2);
+
+                        it.Bounds = new Rectangle(x, itemY, w, itemH);
+                        var inner = new Rectangle(x + innerPad, itemY, w - innerPadTotal, itemH);
+
+                        int topH = Math.Max((int)(inner.Height * 0.60), textNeed);
                         var topRect = new Rectangle(inner.X, inner.Y, inner.Width, topH);
                         it.LabelRect = topRect;
                         it.ValueRect = topRect;
 
-                        int barH = Math.Max(barMinH, (int)(inner.Height * 0.23));
                         int barY = inner.Bottom - barH - barBotGap;
                         it.BarRect = new Rectangle(inner.X, barY, inner.Width, barH);
 
-                        itemY += rowH + _t.Layout.ItemGap;
+                        itemY += itemH + _t.Layout.ItemGap;
                     }
                 }
                 FlushBuffer(); // 收尾

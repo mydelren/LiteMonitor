@@ -25,8 +25,8 @@ namespace LiteMonitor
 
         private Point _dragOffset;
         private bool _uiDragging = false;
-        private bool _dragMoved = false;            // 本次按住期间位移是否达"拖拽"阈值（区分 单击/拖拽）
-        private const int ClickDragThreshold = 4;   // 位移(曼哈顿)≥4px 判为拖拽，不触发单击动作
+        private Point _pressLocation;               // 按下时的窗口屏幕位置（拖拽判定用；客户端坐标随窗口移动会失真）
+        private const int ClickDragThreshold = 4;   // 窗口位移(曼哈顿)≥4px 判为拖拽，不触发单击动作
 
         // 防止 Win11 自动隐藏无边框 + 无任务栏窗口
         protected override CreateParams CreateParams
@@ -189,15 +189,13 @@ namespace LiteMonitor
                     _uiDragging = true;
                     _bizHelper.IsDragging = true;
                     _dragOffset = e.Location;
-                    _dragMoved = false;
+                    _pressLocation = Location;
                 }
             };
             MouseMove += (_, e) =>
             {
                 if (e.Button == MouseButtons.Left)
                 {
-                    if (!_dragMoved && Math.Abs(e.X - _dragOffset.X) + Math.Abs(e.Y - _dragOffset.Y) >= ClickDragThreshold)
-                        _dragMoved = true;
                     if (Math.Abs(e.X - _dragOffset.X) + Math.Abs(e.Y - _dragOffset.Y) < 1) return;
                     Location = new Point(Left + e.X - _dragOffset.X, Top + e.Y - _dragOffset.Y);
                 }
@@ -206,7 +204,8 @@ namespace LiteMonitor
             {
                 if (e.Button == MouseButtons.Left)
                 {
-                    bool wasClick = !_dragMoved;
+                    // 拖拽判定用"窗口自身位移"：拖拽时窗口跟着光标走，客户端坐标不动（曾因此把拖拽误判为单击）
+                    int moveDist = Math.Abs(Location.X - _pressLocation.X) + Math.Abs(Location.Y - _pressLocation.Y);
                     _ui?.SetDragging(false);
                     _uiDragging = false;
                     _bizHelper.IsDragging = false;
@@ -214,7 +213,7 @@ namespace LiteMonitor
                     _bizHelper.ClampToScreen();
                     _bizHelper.SavePos();
                     // 单击（非拖拽）展开面板 → 开/关 TrafficMonitor「每程序详情」窗（2026-10-13 集成）
-                    if (wasClick && !_bizHelper.IsHidden)
+                    if (moveDist < ClickDragThreshold && !_bizHelper.IsHidden)
                         TrafficMonitorBridge.ToggleDetail();
                 }
             };

@@ -169,8 +169,10 @@ namespace LiteMonitor.src.UI
             }
 
             bool isFirstHardware = true;
+            var shadowNics = HardwareScanner.GetShadowNetworkNames();   // 影子网卡（Wi-Fi Direct 等）不进树
             foreach (var hw in computer.Hardware)
             {
+                if (hw.HardwareType == HardwareType.Network && shadowNics.Contains(hw.Name)) continue;
                 AddHardwareNode(_tree.Nodes, hw, filter, !string.IsNullOrEmpty(filter), isFirstHardware && string.IsNullOrEmpty(filter));
                 isFirstHardware = false;
             }

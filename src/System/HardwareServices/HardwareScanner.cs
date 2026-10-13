@@ -51,19 +51,47 @@ namespace LiteMonitor.src.SystemServices
         }
 
         /// <summary>
-        /// 列出所有网卡名称
+        /// 列出所有网卡名称（已剔除"影子网卡"：Wi-Fi Direct 虚拟适配器等，对用户无意义）
         /// </summary>
         public static List<string> ListAllNetworks(IComputer computer)
         {
             if (_cachedNetworkList != null && _cachedNetworkList.Count > 0)
                 return _cachedNetworkList.ToList();
 
+            var shadow = GetShadowNetworkNames();
             var list = computer.Hardware
                 .Where(h => h.HardwareType == HardwareType.Network)
-                .Select(h => h.Name).Distinct().ToList();
+                .Select(h => h.Name)
+                .Where(n => !shadow.Contains(n))
+                .Distinct().ToList();
 
             if (list.Count > 0) _cachedNetworkList = list;
             return list.ToList();
+        }
+
+        private static HashSet<string>? _cachedShadowNics = null;
+
+        /// <summary>
+        /// "影子网卡"名集合：系统自动创建的虚拟适配器（Wi-Fi Direct 投屏/无线直连等），
+        /// 常年 Down、用户从不使用——硬件详情树与设置下拉都应跳过（2026-10-13 用户要求）。
+        /// 按 Description 判定，不依赖本地化名称。
+        /// </summary>
+        public static HashSet<string> GetShadowNetworkNames()
+        {
+            if (_cachedShadowNics != null) return new HashSet<string>(_cachedShadowNics, StringComparer.OrdinalIgnoreCase);
+            var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                foreach (var ni in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
+                {
+                    string desc = ni.Description ?? "";
+                    if (desc.IndexOf("Wi-Fi Direct", StringComparison.OrdinalIgnoreCase) >= 0)
+                        set.Add(ni.Name);
+                }
+            }
+            catch { }
+            _cachedShadowNics = set;
+            return new HashSet<string>(set, StringComparer.OrdinalIgnoreCase);
         }
 
         /// <summary>

@@ -139,14 +139,14 @@ namespace LiteMonitor
             var t = ThemeManager.Current;
             _layout ??= new UILayout(t);
 
-            // === 贴边信息条（收起态：网速双向 + 内存） ===
+            // === 贴边信息条（收起态：CPU + 内存 + 网速 三列） ===
             var biz = MainForm?.BizHelper;
             if (_cfg.EdgeBarEnabled && biz != null && biz.IsHidden)
             {
                 EdgeBarRenderer.Render(g, t, biz.CurrentDock,
                     _cfg.EdgeBarWidth,
                     _form.ClientSize.Width, _form.ClientSize.Height,
-                    _mon.Get("MEM.Load"), _mon.Get("NET.Up"), _mon.Get("NET.Down"),
+                    _mon.Get("CPU.Load"), _mon.Get("MEM.Load"), _mon.Get("NET.Up"), _mon.Get("NET.Down"),
                     _cfg.Thresholds.Load.Warn, _cfg.Thresholds.Load.Crit,
                     _cfg.EdgeBarMaterial);
                 return;

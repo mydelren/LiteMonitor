@@ -498,7 +498,13 @@ namespace LiteMonitor.src.SystemServices
 
         private bool IsPawnIORequiredByConfig()
         {
-            return _cfg.IsAnyEnabled("CPU");
+            // CPU.Load（使用率，来自性能计数器）不依赖 PawnIO 驱动；
+            // 仅当启用了真正需要驱动的 CPU 项（温度/频率/功耗/风扇/电压等）时才要求安装。
+            // （旧实现用 IsAnyEnabled("CPU") 前缀匹配，把只显示"使用率"的用户也拦在驱动提示上）
+            return _cfg.MonitorItems.Any(x =>
+                (x.VisibleInPanel || x.VisibleInTaskbar) &&
+                x.Key.StartsWith("CPU", StringComparison.OrdinalIgnoreCase) &&
+                !x.Key.Equals("CPU.Load", StringComparison.OrdinalIgnoreCase));
         }
 
         private bool IsLegacyPawnIOUpgrade(PawnIOCheckResult pawnIOCheck)

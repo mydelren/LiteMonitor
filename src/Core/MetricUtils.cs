@@ -124,7 +124,8 @@ namespace LiteMonitor.src.Core
                          // [2026-10-13] 容量模式带分母："13.7/24" + 单位 GB → 面板显示 13.7/24GB
                          // （全写 13.7GB / 24GB 需 130px，超出行宽；斜杠式 90px 可放下）
                          string usedStr = FormatDataSizeParts((v / 100.0) * totalGB * 1073741824.0, -1).val;
-                         string totalStr = FormatDataSizeParts(totalGB * 1073741824.0, -1).val;
+                         // 总量取整（23.7→24）：分母是标称容量，且少两位小数能把行内宽度留给标签
+                         string totalStr = FormatDataSizeParts(totalGB * 1073741824.0, 0).val;
                          return usedStr + "/" + totalStr;
                      }
                  }

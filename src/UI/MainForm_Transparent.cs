@@ -25,6 +25,8 @@ namespace LiteMonitor
 
         private Point _dragOffset;
         private bool _uiDragging = false;
+        private bool _dragMoved = false;            // 本次按住期间位移是否达"拖拽"阈值（区分 单击/拖拽）
+        private const int ClickDragThreshold = 4;   // 位移(曼哈顿)≥4px 判为拖拽，不触发单击动作
 
         // 防止 Win11 自动隐藏无边框 + 无任务栏窗口
         protected override CreateParams CreateParams
@@ -187,12 +189,15 @@ namespace LiteMonitor
                     _uiDragging = true;
                     _bizHelper.IsDragging = true;
                     _dragOffset = e.Location;
+                    _dragMoved = false;
                 }
             };
             MouseMove += (_, e) =>
             {
                 if (e.Button == MouseButtons.Left)
                 {
+                    if (!_dragMoved && Math.Abs(e.X - _dragOffset.X) + Math.Abs(e.Y - _dragOffset.Y) >= ClickDragThreshold)
+                        _dragMoved = true;
                     if (Math.Abs(e.X - _dragOffset.X) + Math.Abs(e.Y - _dragOffset.Y) < 1) return;
                     Location = new Point(Left + e.X - _dragOffset.X, Top + e.Y - _dragOffset.Y);
                 }
@@ -201,12 +206,16 @@ namespace LiteMonitor
             {
                 if (e.Button == MouseButtons.Left)
                 {
+                    bool wasClick = !_dragMoved;
                     _ui?.SetDragging(false);
                     _uiDragging = false;
                     _bizHelper.IsDragging = false;
                     _bizHelper.OnUserDragEnd();
                     _bizHelper.ClampToScreen();
                     _bizHelper.SavePos();
+                    // 单击（非拖拽）展开面板 → 开/关 TrafficMonitor「每程序详情」窗（2026-10-13 集成）
+                    if (wasClick && !_bizHelper.IsHidden)
+                        TrafficMonitorBridge.ToggleDetail();
                 }
             };
 

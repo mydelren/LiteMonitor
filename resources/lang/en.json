@@ -92,6 +92,7 @@
     "HardwareInfo": "Hardware Info",
     "SpeedTest": "Network Test",
     "Traffic": "Traffic History",
+    "ProcessNet": "Per-App Traffic",
     "MonitorHistory": "Monitor History",
     "ThemeEditor": "Theme Editor",
     "CleanMemory": "Clean Memory",

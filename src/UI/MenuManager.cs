@@ -435,6 +435,13 @@ namespace LiteMonitor
                 formHistory.Show();
             };
             menu.Items.Add(trafficItem);
+
+            // 进程流量详情（TrafficMonitor 引擎 · 2026-10-13 集成：托盘/右键菜单入口，
+            // 与"单击展开面板"走同一条桥，开/关 ProcessNetMonitor 的详情窗）
+            var procNetItem = new ToolStripMenuItem(LanguageManager.T("Menu.ProcessNet"));
+            procNetItem.Image = Properties.Resources.NetworkIcon;
+            procNetItem.Click += (_, __) => TrafficMonitorBridge.ToggleDetail();
+            menu.Items.Add(procNetItem);
             menu.Items.Add(new ToolStripSeparator());
              // =================================================================
             // [新增] 设置中心入口

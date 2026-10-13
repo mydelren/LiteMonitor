@@ -55,9 +55,9 @@ namespace LiteMonitor
             int w = _t.Layout.Width - _t.Layout.Padding * 2;
             int rowH = _t.Layout.RowHeight;
 
-            // 1. 主标题占位
+            // 1. 主标题占位（主题可关：showTitle=false）
             string title = LanguageManager.T("Title");
-            if (!string.IsNullOrEmpty(title) && title != "Title")
+            if (_t.Layout.ShowTitle && !string.IsNullOrEmpty(title) && title != "Title")
                 y += rowH + _t.Layout.Padding;
 
             // 2. [移除] 旧版 Dashboard 布局逻辑 (已整合进分组循环)

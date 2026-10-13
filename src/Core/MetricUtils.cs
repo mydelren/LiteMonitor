@@ -121,7 +121,11 @@ namespace LiteMonitor.src.Core
                      {
                          // 转换为字节 -> 格式化 -> 取数值部分
                          // [Refactor] 使用自适应格式化 (-1)，确保 100GB 时不显示 .0
-                         return FormatDataSizeParts((v / 100.0) * totalGB * 1073741824.0, -1).val;
+                         // [2026-10-13] 容量模式带分母："13.7/24" + 单位 GB → 面板显示 13.7/24GB
+                         // （全写 13.7GB / 24GB 需 130px，超出行宽；斜杠式 90px 可放下）
+                         string usedStr = FormatDataSizeParts((v / 100.0) * totalGB * 1073741824.0, -1).val;
+                         string totalStr = FormatDataSizeParts(totalGB * 1073741824.0, -1).val;
+                         return usedStr + "/" + totalStr;
                      }
                  }
             }

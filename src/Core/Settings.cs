@@ -246,8 +246,8 @@ namespace LiteMonitor
                 CachedPropShortLabelKey = UIUtils.Intern("PROP.ShortLabel." + _key);
                 CachedItemsKey = UIUtils.Intern("Items." + _key);
 
-                if (_key == "MEM.Load" || _key == "MOBO.Temp" || _key == "DISK.Temp" || _key == "CASE.Fan"|| _key == "FPS") 
-                    CachedUIGroup = "HOST"; 
+                if (_key == "MEM.Load" || _key == "CPU.Load" || _key == "MOBO.Temp" || _key == "DISK.Temp" || _key == "CASE.Fan"|| _key == "FPS")
+                    CachedUIGroup = "HOST";
                 else if (_key.StartsWith("DASH."))
                 {
                     CachedUIGroup = "DASH";

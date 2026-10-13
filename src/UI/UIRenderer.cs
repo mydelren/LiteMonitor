@@ -30,14 +30,24 @@ namespace LiteMonitor
             g.FillRectangle(UIUtils.GetBrush(t.Color.Background), 
                 new Rectangle(-5, -5, (int)g.VisibleClipBounds.Width + 10, (int)g.VisibleClipBounds.Height + 10));
 
-            // 2. 绘制主标题
+            // 2. 绘制主标题（主题可关：showTitle=false）
             DrawMainTitle(g, t);
+
+            // 2.5 mergeCards：所有组共用一张卡（先画整块卡面，各组的独立卡面跳过）
+            if (t.Layout.MergeCards && groups.Count > 0)
+            {
+                int top = groups[0].Bounds.Top;
+                int bottom = groups[groups.Count - 1].Bounds.Bottom;
+                var merged = new Rectangle(groups[0].Bounds.X, top, groups[0].Bounds.Width, bottom - top);
+                UIUtils.FillRoundRect(g, merged, t.Layout.GroupRadius, ThemeManager.ParseColor(t.Color.GroupBackground));
+            }
 
             // 3. 绘制各分组
             foreach (var gr in groups)
             {
-                DrawGroupBackground(g, gr, t);
-                
+                if (!t.Layout.MergeCards)
+                    DrawGroupBackground(g, gr, t);
+
                 // 遍历子项绘制 (不再区分 NET/DISK，统一由 Item.Style 决定)
                 for (int i = 0; i < gr.Items.Count; i++)
                 {
@@ -56,6 +66,7 @@ namespace LiteMonitor
 
         private static void DrawMainTitle(Graphics g, Theme t)
         {
+            if (!t.Layout.ShowTitle) return;
             string title = LanguageManager.T("Title");
             if (string.IsNullOrEmpty(title) || title == "Title") return;
 
@@ -81,6 +92,8 @@ namespace LiteMonitor
 
             // 绘制组标题 (CPU, GPU...)
             // ★★★ 优化：直接使用缓存的 gr.Label，不再每帧调用 LanguageManager.T ★★★
+            // 主题可关：showGroupTitles=false（行内标签已自说明，省一行高度）
+            if (!t.Layout.ShowGroupTitles) return;
             string label = string.IsNullOrEmpty(gr.Label) ? gr.GroupName : gr.Label;
 
             int titleH = t.FontGroup.Height;

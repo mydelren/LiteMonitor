@@ -38,6 +38,11 @@ namespace LiteMonitor.src.Core
         public int ItemGap { get; set; } = 6;
         public int GroupTitleOffset { get; set; } = 6;
 
+        // ===== 紧凑布局开关（2026-10-13 面板重排 · 方案 B）=====
+        public bool ShowTitle { get; set; } = true;        // 主标题（⚡LiteMonitor）
+        public bool ShowGroupTitles { get; set; } = true;  // 组标题（📶网络 / 🖥️主机）
+        public bool MergeCards { get; set; } = false;      // 所有组合并为一张卡（组间距仍在，卡面跨越它）
+
         
 
         public void Scale(float s)
